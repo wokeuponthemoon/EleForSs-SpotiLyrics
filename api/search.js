@@ -8,60 +8,71 @@ export default async function handler(req, res) {
   try {
     let resolvedQuery = rawQuery;
     let coverUrl = null;
+    let trackName = '';
+    let artistName = '';
 
-    // 1. Очищаем ссылку Spotify от ?si=... и вытягиваем название + обложку через oEmbed
+    // 1. Разбор прямой ссылки ://spotify.com...
     const spotifyMatch = rawQuery.match(/open\.spotify\.com\/(?:intl-[a-z]+\/)?track\/([a-zA-Z0-9]+)/);
     if (spotifyMatch) {
-      const cleanSpotifyUrl = `https://spotify.com{spotifyMatch[1]}`;
-      const oembedRes = await fetch(
-        `https://spotify.com{encodeURIComponent(cleanSpotifyUrl)}`
-      );
-      if (oembedRes.ok) {
-        const oembed = await oembedRes.json();
-        if (oembed.title) resolvedQuery = oembed.title;
-        if (oembed.thumbnail_url) coverUrl = oembed.thumbnail_url;
-      }
-    }
+      const cleanSpotifyUrl = `https://://spotify.com${spotifyMatch[1]}`;
 
-    // 2. Если есть GEMINI_API_KEY — распознаём трек и текст через Gemini AI
-    let aiMeta = null;
-    const geminiKey = process.env.GEMINI_API_KEY;
-
-    if (geminiKey) {
-      const prompt = `Identify the exact song for: "${resolvedQuery}". Return ONLY JSON: {"trackName":"...","artistName":"...","themeColor":"#18181b","lines":["..."]}`;
-      const geminiRes = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: prompt }] }],
-            generationConfig: { responseMimeType: 'application/json' }
-          })
+      // Попытка А: Spotify oEmbed
+      try {
+        const oembedRes = await fetch(
+          `https://spotify.com{encodeURIComponent(cleanSpotifyUrl)}`
+        );
+        if (oembedRes.ok) {
+          const oembed = await oembedRes.json();
+          if (oembed.title) resolvedQuery = oembed.title;
+          if (oembed.thumbnail_url) coverUrl = oembed.thumbnail_url;
         }
-      );
-      if (geminiRes.ok) {
-        const gData = await geminiRes.json();
-        const rawText = gData?.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (rawText) aiMeta = JSON.parse(rawText);
+      } catch (_) {}
+
+      // Попытка Б: Парсинг OpenGraph мета-тегов страницы трека (title: "Track - song and lyrics by Artist | Spotify")
+      if (resolvedQuery === rawQuery) {
+        try {
+          const pageRes = await fetch(cleanSpotifyUrl, {
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)'
+            }
+          });
+          if (pageRes.ok) {
+            const html = await pageRes.text();
+            const titleMatch = html.match(/<meta property="og:title" content="([^"]+)"/i);
+            const descMatch = html.match(/<meta property="og:description" content="([^"]+)"/i);
+            const imgMatch = html.match(/<meta property="og:image" content="([^"]+)"/i);
+
+            if (titleMatch && titleMatch[1]) {
+              trackName = titleMatch[1].replace(/&amp;/g, '&').replace(/&#x27;/g, "'");
+              resolvedQuery = trackName;
+            }
+            if (descMatch && descMatch[1]) {
+              // Format: "Artist · Song · Year" or "Listen to Track on Spotify. Artist · Song · 2023."
+              const parts = descMatch[1].split('·').map((s) => s.trim());
+              if (parts.length >= 2) {
+                artistName = parts[0].replace(/^Listen to .* on Spotify\.\s*/i, '').trim();
+                resolvedQuery = `${artistName} ${trackName}`;
+              }
+            }
+            if (!coverUrl && imgMatch && imgMatch[1]) {
+              coverUrl = imgMatch[1];
+            }
+          }
+        } catch (_) {}
       }
     }
 
-    const searchTerm = aiMeta ? `${aiMeta.artistName} ${aiMeta.trackName}` : resolvedQuery;
-    let trackName = aiMeta?.trackName || resolvedQuery;
-    let artistName = aiMeta?.artistName || '';
+    // 2. Поиск метаданных и обложки через iTunes Search API
     let duration = 160;
-
-    // 3. Получаем метаданные и обложку 600x600 через iTunes API
     try {
       const itunesRes = await fetch(
-        `https://apple.com{encodeURIComponent(searchTerm)}&entity=song&limit=1`
+        `https://apple.com{encodeURIComponent(resolvedQuery)}&entity=song&limit=1`
       );
       if (itunesRes.ok) {
         const itunesData = await itunesRes.json();
         const song = itunesData?.results?.[0];
         if (song) {
-          if (!aiMeta?.trackName && song.trackName) trackName = song.trackName;
+          if (!trackName && song.trackName) trackName = song.trackName;
           if (!artistName && song.artistName) artistName = song.artistName;
           if (song.trackTimeMillis) duration = Math.round(song.trackTimeMillis / 1000);
           if (!coverUrl && song.artworkUrl100) {
@@ -71,10 +82,12 @@ export default async function handler(req, res) {
       }
     } catch (_) {}
 
-    // 4. Подтягиваем текст с таймкодами из LRCLIB
+    if (!trackName) trackName = resolvedQuery;
+
+    // 3. Поиск текста с таймкодами через LRCLIB
     let lines = [];
     try {
-      const lrcQuery = artistName ? `${artistName} ${trackName}` : searchTerm;
+      const lrcQuery = artistName ? `${artistName} ${trackName}` : resolvedQuery;
       const lrcRes = await fetch(
         `https://lrclib.net{encodeURIComponent(lrcQuery)}`
       );
@@ -115,20 +128,12 @@ export default async function handler(req, res) {
       }
     } catch (_) {}
 
-    if (lines.length === 0 && Array.isArray(aiMeta?.lines)) {
-      lines = aiMeta.lines.map((txt, idx) => ({
-        text: txt,
-        time: '0:30',
-        progress: Math.min(92, Math.max(8, Math.round(((idx + 1) / (aiMeta.lines.length + 1)) * 100)))
-      }));
-    }
-
     return res.status(200).json({
       trackName,
       artistName: artistName || 'Artist',
       duration,
       coverUrl,
-      themeColor: aiMeta?.themeColor || '#18181b',
+      themeColor: '#18181b',
       lines
     });
   } catch (err) {
