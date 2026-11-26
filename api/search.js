@@ -1,39 +1,34 @@
 export default async function handler(req, res) {
-  const query = (req.query.q || '').trim();
-  if (!query) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  const rawQuery = (req.query.q || '').trim();
+  if (!rawQuery) {
     return res.status(400).json({ error: 'Empty query' });
   }
 
   try {
-    let resolvedQuery = query;
+    let resolvedQuery = rawQuery;
+    let coverUrl = null;
 
-    // 1. Если вставлена прямая ссылка ://spotify.com... — забираем название и артиста через oEmbed
-    if (query.includes('://spotify.com')) {
+    // 1. Очищаем ссылку Spotify от ?si=... и вытягиваем название + обложку через oEmbed
+    const spotifyMatch = rawQuery.match(/open\.spotify\.com\/(?:intl-[a-z]+\/)?track\/([a-zA-Z0-9]+)/);
+    if (spotifyMatch) {
+      const cleanSpotifyUrl = `https://spotify.com{spotifyMatch[1]}`;
       const oembedRes = await fetch(
-        `https://spotify.com{encodeURIComponent(query)}`
+        `https://spotify.com{encodeURIComponent(cleanSpotifyUrl)}`
       );
       if (oembedRes.ok) {
         const oembed = await oembedRes.json();
-        if (oembed.title) {
-          resolvedQuery = oembed.title;
-        }
+        if (oembed.title) resolvedQuery = oembed.title;
+        if (oembed.thumbnail_url) coverUrl = oembed.thumbnail_url;
       }
     }
 
-    // 2. Если на сервере задан GEMINI_API_KEY — распознаём трек и текст через Gemini AI
+    // 2. Если есть GEMINI_API_KEY — распознаём трек и текст через Gemini AI
     let aiMeta = null;
     const geminiKey = process.env.GEMINI_API_KEY;
 
     if (geminiKey) {
-      const prompt = `Identify the exact song for this search query (could be a track name, lyrics snippet, or description): "${resolvedQuery}".
-Return ONLY valid JSON with fields:
-{
-  "trackName": "exact track title",
-  "artistName": "exact artist name",
-  "themeColor": "#hex dark rich background color matching the album cover vibe",
-  "lines": ["line 1", "line 2", "..."]
-}`;
-
+      const prompt = `Identify the exact song for: "${resolvedQuery}". Return ONLY JSON: {"trackName":"...","artistName":"...","themeColor":"#18181b","lines":["..."]}`;
       const geminiRes = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`,
         {
@@ -45,41 +40,43 @@ Return ONLY valid JSON with fields:
           })
         }
       );
-
       if (geminiRes.ok) {
         const gData = await geminiRes.json();
         const rawText = gData?.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (rawText) {
-          aiMeta = JSON.parse(rawText);
-        }
+        if (rawText) aiMeta = JSON.parse(rawText);
       }
     }
 
-    const searchTerm = aiMeta
-      ? `${aiMeta.artistName} ${aiMeta.trackName}`
-      : resolvedQuery;
+    const searchTerm = aiMeta ? `${aiMeta.artistName} ${aiMeta.trackName}` : resolvedQuery;
+    let trackName = aiMeta?.trackName || resolvedQuery;
+    let artistName = aiMeta?.artistName || '';
+    let duration = 160;
 
-    // 3. Получаем официальную обложку альбома 600x600 через iTunes Search API
-    let coverUrl = null;
+    // 3. Получаем метаданные и обложку 600x600 через iTunes API
     try {
       const itunesRes = await fetch(
         `https://apple.com{encodeURIComponent(searchTerm)}&entity=song&limit=1`
       );
       if (itunesRes.ok) {
         const itunesData = await itunesRes.json();
-        const artwork = itunesData?.results?.[0]?.artworkUrl100;
-        if (artwork) {
-          coverUrl = artwork.replace('100x100bb', '600x600bb');
+        const song = itunesData?.results?.[0];
+        if (song) {
+          if (!aiMeta?.trackName && song.trackName) trackName = song.trackName;
+          if (!artistName && song.artistName) artistName = song.artistName;
+          if (song.trackTimeMillis) duration = Math.round(song.trackTimeMillis / 1000);
+          if (!coverUrl && song.artworkUrl100) {
+            coverUrl = song.artworkUrl100.replace('100x100bb', '600x600bb');
+          }
         }
       }
     } catch (_) {}
 
-    // 4. Подтягиваем точные построчные таймкоды из LRCLIB
+    // 4. Подтягиваем текст с таймкодами из LRCLIB
     let lines = [];
-    let duration = 160;
     try {
+      const lrcQuery = artistName ? `${artistName} ${trackName}` : searchTerm;
       const lrcRes = await fetch(
-        `https://lrclib.net{encodeURIComponent(searchTerm)}`
+        `https://lrclib.net{encodeURIComponent(lrcQuery)}`
       );
       if (lrcRes.ok) {
         const lrcList = await lrcRes.json();
@@ -87,7 +84,10 @@ Return ONLY valid JSON with fields:
           (t) => t.syncedLyrics || t.plainLyrics
         );
         if (best) {
-          duration = best.duration || 160;
+          if (!artistName && best.artistName) artistName = best.artistName;
+          if (best.trackName) trackName = best.trackName;
+          duration = best.duration || duration;
+
           if (best.syncedLyrics) {
             const timeRegex = /^\[(\d{1,2}):(\d{2})(?:\.\d+)?\]\s*(.*)$/;
             for (const raw of best.syncedLyrics.split('\n')) {
@@ -115,7 +115,6 @@ Return ONLY valid JSON with fields:
       }
     } catch (_) {}
 
-    // Если LRCLIB не нашёл текст, берём строки от Gemini AI
     if (lines.length === 0 && Array.isArray(aiMeta?.lines)) {
       lines = aiMeta.lines.map((txt, idx) => ({
         text: txt,
@@ -125,14 +124,14 @@ Return ONLY valid JSON with fields:
     }
 
     return res.status(200).json({
-      trackName: aiMeta?.trackName || resolvedQuery,
-      artistName: aiMeta?.artistName || 'Artist',
+      trackName,
+      artistName: artistName || 'Artist',
       duration,
       coverUrl,
       themeColor: aiMeta?.themeColor || '#18181b',
       lines
     });
   } catch (err) {
-    return res.status(500).json({ error: 'Search failed' });
+    return res.status(500).json({ error: err.message || 'Search failed' });
   }
 }
