@@ -21,7 +21,7 @@ export default async function handler(req, res) {
     let artistName = '';
     let duration = 160;
 
-    // 1. Получаем данные через Spotify oEmbed
+    // 1. Spotify oEmbed
     try {
       const oembedRes = await fetch(
         SPOTIFY_BASE + '/oembed?url=' + encodeURIComponent(cleanSpotifyUrl)
@@ -41,12 +41,10 @@ export default async function handler(req, res) {
       }
     } catch (_) {}
 
-    // 2. Уточняем точное имя артиста, обложку и длительность через OpenGraph мета-теги страницы Spotify
+    // 2. OpenGraph мета-теги страницы Spotify
     try {
       const pageRes = await fetch(cleanSpotifyUrl, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (compatible; Googlebot/2.1)'
-        }
+        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; Googlebot/2.1)' }
       });
       if (pageRes.ok) {
         const html = await pageRes.text();
@@ -83,7 +81,7 @@ export default async function handler(req, res) {
       trackName = trackName.slice(artistName.length + 3).trim();
     }
 
-    // 3. Строгий поиск текста в LRCLIB только по точному совпадению "Артист + Трек"
+    // 3. Строгий поиск текста в LRCLIB по точному совпадению "Артист + Трек"
     let lines = [];
     const parseLrc = (best) => {
       const dur = best.duration || duration;
