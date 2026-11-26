@@ -938,7 +938,8 @@
       pointer-events: none;
       transition: all 0.25s ease;
       z-index: 100;
-      white-space: nowrap;
+      max-width: 92vw;
+      text-align: center;
     }
 
     .toast.show {
@@ -981,7 +982,7 @@
             type="text"
             class="studio-input"
             id="searchQueryInput"
-            placeholder="Ссылка Spotify, трек или строчка по памяти..."
+            placeholder="Название трека или ссылка open.spotify.com/track/..."
             autocomplete="off"
           />
           <button type="submit" class="pill-btn active" id="searchSubmitBtn">AI Найти</button>
@@ -1211,7 +1212,6 @@
     let lastExportFilename = 'eleforss-spotilyrics.avi';
     let previewAnimTimer = null;
 
-    // Built-in catalog (Works offline & inside sandboxed iframes)
     const BUILTIN_CATALOG = [
       {
         id: 'which way',
@@ -1303,7 +1303,7 @@
       'M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z'
     );
 
-    function showToast(msg, duration = 2600) {
+    function showToast(msg, duration = 3000) {
       toast.textContent = msg;
       toast.classList.add('show');
       clearTimeout(toast._timer);
@@ -1333,7 +1333,6 @@
       };
     }
 
-    // Extract dominant rich color from uploaded or AI-fetched album cover
     function extractDominantColorFromImage(imgEl) {
       try {
         const c = document.createElement('canvas');
@@ -1429,7 +1428,6 @@
       });
     }
 
-    // Site Theme Switcher (Dark, White, Chrome)
     siteThemeBtns.forEach((btn) => {
       btn.addEventListener('click', () => {
         siteThemeBtns.forEach((b) => b.classList.remove('active'));
@@ -1441,7 +1439,6 @@
       });
     });
 
-    // Surface Finish Switcher (Gradient, Matte, Glossy)
     finishBtns.forEach((btn) => {
       btn.addEventListener('click', () => {
         finishBtns.forEach((b) => b.classList.remove('active'));
@@ -1450,7 +1447,6 @@
       });
     });
 
-    // Built-in Color Swatches & Native Color Picker
     colorSwatches.forEach((sw) => {
       sw.addEventListener('click', () => {
         updateCardAppearance(sw.dataset.color, cardFinish);
@@ -1480,12 +1476,17 @@
         updateCardAppearance(trackData.themeColor, cardFinish);
       }
 
-      songLines = trackData.lines;
-      const initialCount = Math.min(4, songLines.length);
-      selectedIndices = Array.from({ length: initialCount }, (_, i) => i);
-      focusedIndex = selectedIndices[selectedIndices.length - 1];
-      renderLyricsUI();
-      showToast(`Загружен трек: ${trackData.artistName} — ${trackData.trackName}`);
+      if (trackData.lines && trackData.lines.length > 0) {
+        songLines = trackData.lines;
+        const initialCount = Math.min(4, songLines.length);
+        selectedIndices = Array.from({ length: initialCount }, (_, i) => i);
+        focusedIndex = selectedIndices[selectedIndices.length - 1];
+        renderLyricsUI();
+        showToast(`Загружен трек: ${trackData.artistName} — ${trackData.trackName}`);
+      } else {
+        pasteDrawer.classList.add('open');
+        showToast(`Трек найден (${trackData.artistName} — ${trackData.trackName}), вставь текст вручную`, 4000);
+      }
     }
 
     presetChips.forEach((chip) => {
@@ -1667,10 +1668,20 @@
       return linesOut;
     }
 
-    // Hybrid AI Search:
-    // 1) Local built-in catalog
-    // 2) Serverless /api/search endpoint (Gemini AI + Spotify/iTunes Cover + LRCLIB) when deployed on Vercel
-    // 3) Direct LRCLIB fallback when hosted on static GitHub Pages
+    // Fetch cover directly from iTunes API in browser
+    async function fetchDirectCover(term) {
+      try {
+        const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(term)}&entity=song&limit=1`);
+        if (res.ok) {
+          const data = await res.json();
+          const art = data?.results?.[0]?.artworkUrl100;
+          return art ? art.replace('100x100bb', '600x600bb') : null;
+        }
+      } catch (_) {}
+      return null;
+    }
+
+    // Multi-tier Search: Backend /api/search -> Direct LRCLIB + iTunes -> Local Presets
     trackSearchForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       const query = searchQueryInput.value.trim();
@@ -1680,6 +1691,7 @@
       searchSubmitBtn.textContent = 'AI...';
       searchResults.innerHTML = '';
 
+      const isSpotifyUrl = query.includes('open.spotify.com/');
       const qLower = query.toLowerCase();
       const tokens = qLower.split(/\s+/).filter(Boolean);
 
@@ -1688,68 +1700,76 @@
         return tokens.every((tok) => hay.includes(tok));
       });
 
-      let backendAiMatch = null;
+      let backendMatch = null;
+      let backendError = null;
+
       try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 8000);
+        const timeoutId = setTimeout(() => controller.abort(), 9000);
         const apiRes = await fetch(`/api/search?q=${encodeURIComponent(query)}`, {
           signal: controller.signal
         });
         clearTimeout(timeoutId);
         if (apiRes.ok) {
           const aiData = await apiRes.json();
-          if (aiData && aiData.lines && aiData.lines.length > 0) {
-            backendAiMatch = {
+          if (aiData && aiData.trackName && !aiData.trackName.startsWith('http')) {
+            backendMatch = {
               trackName: aiData.trackName,
-              artistName: aiData.artistName,
+              artistName: aiData.artistName || 'Artist',
               duration: aiData.duration || 160,
               coverUrl: aiData.coverUrl || null,
               themeColor: aiData.themeColor || '#18181b',
-              source: 'AI SEARCH',
-              lines: aiData.lines
+              source: 'SPOTIFY / AI',
+              lines: aiData.lines || []
             };
           }
+        } else {
+          backendError = `API ${apiRes.status}`;
         }
       } catch (err) {
-        // Fallback if static hosting without /api/search
+        backendError = 'no-backend';
       }
 
-      let lrclibMatches = [];
-      if (!backendAiMatch) {
+      // Direct browser search on LRCLIB + iTunes (works for any track name even if /api/search failed)
+      let directMatches = [];
+      if (!backendMatch && !isSpotifyUrl) {
         try {
-          const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 3500);
-          const res = await fetch(`https://lrclib.net/api/search?q=${encodeURIComponent(query)}`, {
-            signal: controller.signal
-          });
-          clearTimeout(timeoutId);
-          if (res.ok) {
-            const data = await res.json();
-            lrclibMatches = (Array.isArray(data) ? data : [])
+          const [lrcRes, directCover] = await Promise.all([
+            fetch(`https://lrclib.net/api/search?q=${encodeURIComponent(query)}`),
+            fetchDirectCover(query)
+          ]);
+          if (lrcRes.ok) {
+            const data = await lrcRes.json();
+            directMatches = (Array.isArray(data) ? data : [])
               .filter((t) => t.syncedLyrics || t.plainLyrics)
               .slice(0, 6)
-              .map((t) => ({
+              .map((t, idx) => ({
                 trackName: t.trackName || t.name || 'Unknown Track',
                 artistName: t.artistName || 'Unknown Artist',
                 duration: t.duration || 150,
+                coverUrl: idx === 0 ? directCover : null,
                 source: t.syncedLyrics ? 'SYNCED' : 'LRCLIB',
                 lines: parseLrclibTrack(t)
               }))
               .filter((t) => t.lines.length > 0);
           }
-        } catch (err) {}
+        } catch (_) {}
       }
 
       const combined = [
-        ...(backendAiMatch ? [backendAiMatch] : []),
+        ...(backendMatch ? [backendMatch] : []),
         ...localMatches,
-        ...lrclibMatches
+        ...directMatches
       ];
 
       if (combined.length === 0) {
         searchResults.classList.remove('open');
         pasteDrawer.classList.add('open');
-        showToast('В режиме превью доступен встроенный каталог и ручная вставка текста', 3800);
+        if (isSpotifyUrl) {
+          showToast('Для ссылок Spotify добавь файл vercel.json на GitHub или введи название трека текстом', 4500);
+        } else {
+          showToast('Трек не найден — проверь написание или вставь текст вручную', 3800);
+        }
         searchSubmitBtn.disabled = false;
         searchSubmitBtn.textContent = 'AI Найти';
         return;
@@ -1780,7 +1800,10 @@
         itemEl.appendChild(info);
         itemEl.appendChild(tag);
 
-        itemEl.addEventListener('click', () => {
+        itemEl.addEventListener('click', async () => {
+          if (!track.coverUrl) {
+            track.coverUrl = await fetchDirectCover(`${track.artistName} ${track.trackName}`);
+          }
           loadTrackIntoStudio(track);
           searchResults.classList.remove('open');
         });
@@ -1789,7 +1812,7 @@
       });
 
       searchResults.classList.add('open');
-      if (backendAiMatch || combined.length === 1) {
+      if (backendMatch || combined.length === 1) {
         loadTrackIntoStudio(combined[0]);
       }
 
@@ -2393,7 +2416,6 @@
       }, 40);
     });
 
-    // Initialize UI & Default Appearance
     updateCardAppearance('#18181b', 'gradient');
     renderLyricsUI();
   </script>
