@@ -1,0 +1,2401 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EleForSs SpotiLyrics v1.0 (beta) — AI Spotify Lyrics Studio</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg-void: #070708;
+      --panel-bg: rgba(18, 18, 21, 0.88);
+      --input-bg: rgba(9, 9, 11, 0.92);
+      --text-primary: #f4f4f6;
+      --text-muted: #787882;
+      --opium-chrome: #c8c8d0;
+      --border-subtle: rgba(255, 255, 255, 0.09);
+      --btn-bg: rgba(255, 255, 255, 0.06);
+      --btn-hover: rgba(255, 255, 255, 0.14);
+      --btn-active-bg: #f4f4f6;
+      --btn-active-text: #09090b;
+      --ambient-grad: radial-gradient(circle at 25% 20%, rgba(190, 190, 205, 0.07) 0%, transparent 45%),
+                      radial-gradient(circle at 80% 80%, rgba(90, 90, 105, 0.08) 0%, transparent 50%),
+                      linear-gradient(180deg, #050506 0%, #0b0b0d 50%, #050506 100%);
+    }
+
+    /* Site Theme 2: White */
+    body.site-white {
+      --bg-void: #f2f2f5;
+      --panel-bg: rgba(255, 255, 255, 0.92);
+      --input-bg: #f7f7fa;
+      --text-primary: #111114;
+      --text-muted: #646470;
+      --opium-chrome: #2c2c34;
+      --border-subtle: rgba(0, 0, 0, 0.1);
+      --btn-bg: rgba(0, 0, 0, 0.05);
+      --btn-hover: rgba(0, 0, 0, 0.11);
+      --btn-active-bg: #111114;
+      --btn-active-text: #ffffff;
+      --ambient-grad: radial-gradient(circle at 20% 15%, rgba(255, 255, 255, 0.9) 0%, transparent 55%),
+                      linear-gradient(180deg, #ececf0 0%, #f7f7fa 50%, #e6e6ec 100%);
+    }
+
+    /* Site Theme 3: Chrome */
+    body.site-chrome {
+      --bg-void: #141418;
+      --panel-bg: rgba(30, 31, 38, 0.88);
+      --input-bg: rgba(18, 19, 24, 0.92);
+      --text-primary: #f8f9fc;
+      --text-muted: #989aa8;
+      --opium-chrome: #e4e6f0;
+      --border-subtle: rgba(220, 225, 245, 0.18);
+      --btn-bg: rgba(220, 225, 245, 0.08);
+      --btn-hover: rgba(220, 225, 245, 0.18);
+      --btn-active-bg: linear-gradient(135deg, #ffffff 0%, #b8bcc8 50%, #f2f3f8 100%);
+      --btn-active-text: #0a0a0d;
+      --ambient-grad: radial-gradient(circle at 25% 15%, rgba(220, 225, 245, 0.15) 0%, transparent 45%),
+                      radial-gradient(circle at 80% 80%, rgba(140, 145, 165, 0.14) 0%, transparent 50%),
+                      linear-gradient(160deg, #1b1c22 0%, #101115 55%, #181920 100%);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      min-height: 100vh;
+      background-color: var(--bg-void);
+      color: var(--text-primary);
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      padding: 20px 16px 40px;
+      overflow-x: hidden;
+      position: relative;
+      transition: background-color 0.3s ease, color 0.3s ease;
+    }
+
+    .ambient-bg {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      background: var(--ambient-grad);
+    }
+
+    .grain-overlay {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 50;
+      opacity: 0.04;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+    }
+
+    .app-container {
+      position: relative;
+      z-index: 2;
+      width: 100%;
+      max-width: 960px;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    /* Project Navbar */
+    .project-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+      padding: 12px 16px;
+      background: var(--panel-bg);
+      border: 1px solid var(--border-subtle);
+      border-radius: 14px;
+      backdrop-filter: blur(14px);
+      transition: all 0.25s ease;
+    }
+
+    .project-logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .project-star {
+      font-size: 18px;
+      color: var(--text-primary);
+    }
+
+    .project-name {
+      font-weight: 800;
+      font-size: 15px;
+      letter-spacing: -0.02em;
+      color: var(--text-primary);
+    }
+
+    .project-version {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      padding: 3px 8px;
+      border-radius: 6px;
+      background: var(--btn-bg);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-muted);
+    }
+
+    .site-theme-switcher {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .site-theme-label {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10.5px;
+      color: var(--text-muted);
+      margin-right: 4px;
+      text-transform: uppercase;
+    }
+
+    /* Two-column Workspace */
+    .workspace-grid {
+      display: grid;
+      grid-template-columns: 1fr 440px;
+      gap: 22px;
+      align-items: start;
+    }
+
+    @media (max-width: 880px) {
+      .workspace-grid {
+        grid-template-columns: 1fr;
+        justify-items: center;
+      }
+      .studio-panel {
+        width: 100%;
+        max-width: 440px;
+      }
+    }
+
+    /* Left Panel: Track Search & Verse Selector */
+    .studio-panel {
+      background: var(--panel-bg);
+      border: 1px solid var(--border-subtle);
+      border-radius: 18px;
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 13px;
+      backdrop-filter: blur(14px);
+      transition: all 0.25s ease;
+    }
+
+    .panel-section-title {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .search-box {
+      display: flex;
+      gap: 8px;
+    }
+
+    .studio-input {
+      width: 100%;
+      background: var(--input-bg);
+      border: 1px solid var(--border-subtle);
+      border-radius: 10px;
+      padding: 9px 12px;
+      color: var(--text-primary);
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      outline: none;
+      transition: border-color 0.2s ease;
+    }
+
+    .studio-input:focus {
+      border-color: var(--text-primary);
+    }
+
+    .studio-input::placeholder {
+      color: var(--text-muted);
+      opacity: 0.65;
+    }
+
+    .quick-presets {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+    }
+
+    .preset-chip {
+      background: var(--btn-bg);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-muted);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      padding: 4px 8px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.18s ease;
+    }
+
+    .preset-chip:hover {
+      color: var(--text-primary);
+      background: var(--btn-hover);
+    }
+
+    .meta-edit-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .cover-upload-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    /* Search results dropdown list */
+    .search-results {
+      display: none;
+      flex-direction: column;
+      gap: 5px;
+      max-height: 165px;
+      overflow-y: auto;
+      background: var(--input-bg);
+      border: 1px solid var(--border-subtle);
+      border-radius: 10px;
+      padding: 6px;
+    }
+
+    .search-results.open {
+      display: flex;
+    }
+
+    .search-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 8px 10px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.15s ease;
+      text-align: left;
+    }
+
+    .search-item:hover {
+      background: var(--btn-hover);
+    }
+
+    .search-item-info {
+      min-width: 0;
+    }
+
+    .search-item-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-primary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .search-item-artist {
+      font-size: 11.5px;
+      color: var(--text-muted);
+    }
+
+    .search-item-tag {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: var(--btn-bg);
+      color: var(--text-primary);
+      flex-shrink: 0;
+    }
+
+    /* Paste Custom Lyrics Drawer */
+    .paste-drawer {
+      display: none;
+      flex-direction: column;
+      gap: 8px;
+      background: var(--input-bg);
+      border: 1px solid var(--border-subtle);
+      border-radius: 10px;
+      padding: 10px;
+    }
+
+    .paste-drawer.open {
+      display: flex;
+    }
+
+    .paste-textarea {
+      width: 100%;
+      min-height: 85px;
+      resize: vertical;
+      background: var(--bg-void);
+      border: 1px solid var(--border-subtle);
+      border-radius: 8px;
+      padding: 9px 10px;
+      color: var(--text-primary);
+      font-family: 'Inter', sans-serif;
+      font-size: 12.5px;
+      line-height: 1.4;
+      outline: none;
+    }
+
+    /* Full Song Lyrics Picker (Select 1 to 4 lines) */
+    .lyrics-picker-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .selected-counter {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: var(--text-primary);
+      background: var(--btn-bg);
+      padding: 3px 8px;
+      border-radius: 6px;
+    }
+
+    .lyrics-picker-list {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      max-height: 245px;
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+
+    .lyrics-picker-list::-webkit-scrollbar,
+    .search-results::-webkit-scrollbar {
+      width: 5px;
+    }
+
+    .lyrics-picker-list::-webkit-scrollbar-thumb,
+    .search-results::-webkit-scrollbar-thumb {
+      background: rgba(128, 128, 140, 0.3);
+      border-radius: 99px;
+    }
+
+    .picker-line {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 8px 11px;
+      border-radius: 9px;
+      background: var(--btn-bg);
+      border: 1px solid transparent;
+      font-size: 13px;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all 0.18s ease;
+      user-select: none;
+    }
+
+    .picker-line:hover {
+      background: var(--btn-hover);
+      color: var(--text-primary);
+    }
+
+    .picker-line.picked {
+      background: var(--btn-hover);
+      border-color: var(--border-subtle);
+      color: var(--text-primary);
+      font-weight: 600;
+    }
+
+    .picker-line.picked-focus {
+      border-color: var(--text-primary);
+      box-shadow: 0 0 12px rgba(128, 128, 140, 0.18);
+    }
+
+    .picker-badge {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 5px;
+      background: var(--btn-active-bg);
+      color: var(--btn-active-text);
+      flex-shrink: 0;
+    }
+
+    /* Right Column: Card Preview & Export */
+    .wrapper {
+      width: 100%;
+      max-width: 440px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .meta-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 4px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+
+    /* Main Spotify Shareable Lyrics Card */
+    .spotify-card {
+      position: relative;
+      width: 100%;
+      background: linear-gradient(160deg, #18181b 0%, #0e0e10 55%, #09090b 100%);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 20px;
+      padding: 28px 26px 24px;
+      box-shadow: 0 28px 65px rgba(0, 0, 0, 0.65);
+      overflow: hidden;
+      transition: background 0.35s ease, border-color 0.35s ease;
+    }
+
+    /* Glossy sheen overlay */
+    .spotify-card::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      opacity: 0;
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.24) 0%, rgba(255, 255, 255, 0.04) 36%, transparent 55%);
+      transition: opacity 0.3s ease;
+    }
+
+    .spotify-card.finish-glossy::after {
+      opacity: 1;
+    }
+
+    /* Top Track Info Bar inside Card */
+    .card-top {
+      position: relative;
+      z-index: 2;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 26px;
+    }
+
+    .track-identity {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+    }
+
+    .album-cover {
+      width: 48px;
+      height: 48px;
+      border-radius: 8px;
+      background: radial-gradient(circle at 30% 25%, #2d2d34 0%, #0b0b0d 75%);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      flex-shrink: 0;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.55);
+      overflow: hidden;
+    }
+
+    .album-cover svg {
+      width: 26px;
+      height: 26px;
+    }
+
+    .album-cover img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: none;
+    }
+
+    .track-details {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      min-width: 0;
+    }
+
+    .track-title-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .track-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: #f4f4f6;
+      letter-spacing: -0.01em;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .explicit-tag {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 15px;
+      height: 15px;
+      border-radius: 3px;
+      background: rgba(255, 255, 255, 0.22);
+      color: #0e0e10;
+      font-size: 9px;
+      font-weight: 800;
+      flex-shrink: 0;
+    }
+
+    .artist-name {
+      font-size: 12.5px;
+      font-weight: 500;
+      color: rgba(255, 255, 255, 0.62);
+    }
+
+    .equalizer {
+      display: flex;
+      align-items: flex-end;
+      gap: 2.5px;
+      height: 15px;
+      padding: 0 4px;
+    }
+
+    .eq-bar {
+      width: 2.5px;
+      background: #e6e6ee;
+      border-radius: 2px;
+      animation: eqPulse 1.1s ease-in-out infinite alternate;
+    }
+
+    .eq-bar:nth-child(1) { height: 6px; animation-delay: 0.1s; }
+    .eq-bar:nth-child(2) { height: 14px; animation-delay: 0.35s; }
+    .eq-bar:nth-child(3) { height: 9px; animation-delay: 0.2s; }
+    .eq-bar:nth-child(4) { height: 12px; animation-delay: 0.45s; }
+
+    @keyframes eqPulse {
+      0% { height: 4px; }
+      100% { height: 15px; }
+    }
+
+    /* Lyrics Block */
+    .lyrics-stack {
+      position: relative;
+      z-index: 2;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      margin-bottom: 28px;
+      user-select: none;
+    }
+
+    .lyric-line {
+      font-size: 19px;
+      font-weight: 700;
+      line-height: 1.28;
+      letter-spacing: -0.02em;
+      color: rgba(255, 255, 255, 0.28);
+      cursor: pointer;
+      transition: all 0.25s ease;
+    }
+
+    .lyric-line:hover {
+      color: rgba(255, 255, 255, 0.55);
+    }
+
+    .lyric-line.active {
+      font-size: 23px;
+      font-weight: 800;
+      color: #ffffff;
+      text-shadow: 0 0 28px rgba(255, 255, 255, 0.22);
+      transform: translateX(2px);
+    }
+
+    /* Spotify Mini Progress Bar */
+    .player-progress {
+      position: relative;
+      z-index: 2;
+      margin-bottom: 22px;
+    }
+
+    .progress-track {
+      width: 100%;
+      height: 3.5px;
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 99px;
+      overflow: hidden;
+      margin-bottom: 7px;
+    }
+
+    .progress-fill {
+      width: 35%;
+      height: 100%;
+      background: linear-gradient(90deg, rgba(255, 255, 255, 0.6) 0%, #ffffff 100%);
+      border-radius: 99px;
+      transition: width 0.4s ease;
+    }
+
+    .progress-times {
+      display: flex;
+      justify-content: space-between;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      color: rgba(255, 255, 255, 0.58);
+    }
+
+    /* Bottom Spotify Watermark & Opium Stamp */
+    .card-footer {
+      position: relative;
+      z-index: 2;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding-top: 14px;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .spotify-brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      color: #f4f4f6;
+      font-size: 12.5px;
+      font-weight: 700;
+    }
+
+    .spotify-brand svg {
+      width: 19px;
+      height: 19px;
+      fill: currentColor;
+    }
+
+    .gothic-stamp {
+      font-family: 'Cinzel Decorative', serif;
+      font-size: 11px;
+      letter-spacing: 0.16em;
+      color: rgba(255, 255, 255, 0.58);
+      text-transform: uppercase;
+    }
+
+    /* Interactive Card Styling & Export Controls */
+    .controls-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      background: var(--panel-bg);
+      border: 1px solid var(--border-subtle);
+      border-radius: 14px;
+      padding: 12px;
+      backdrop-filter: blur(14px);
+    }
+
+    .color-palette-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .swatches-group {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .color-swatch {
+      width: 24px;
+      height: 24px;
+      border-radius: 7px;
+      border: 1.5px solid rgba(255, 255, 255, 0.22);
+      cursor: pointer;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .color-swatch:hover {
+      transform: scale(1.1);
+    }
+
+    .color-swatch.active {
+      border: 2px solid #ffffff;
+      box-shadow: 0 0 10px rgba(255, 255, 255, 0.45);
+      transform: scale(1.08);
+    }
+
+    .custom-color-picker {
+      width: 26px;
+      height: 24px;
+      padding: 0;
+      border: 1px solid var(--border-subtle);
+      border-radius: 6px;
+      background: transparent;
+      cursor: pointer;
+    }
+
+    .controls-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .finish-switchers,
+    .action-btns,
+    .export-btns {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .export-btns {
+      width: 100%;
+    }
+
+    .pill-btn {
+      background: var(--btn-bg);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-muted);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      padding: 7px 11px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      user-select: none;
+    }
+
+    .pill-btn:hover {
+      color: var(--text-primary);
+      background: var(--btn-hover);
+    }
+
+    .pill-btn.active {
+      background: var(--btn-active-bg);
+      color: var(--btn-active-text);
+      border-color: transparent;
+      font-weight: 700;
+    }
+
+    .pill-btn.primary-export {
+      flex: 1;
+      background: var(--btn-hover);
+      color: var(--text-primary);
+      font-weight: 600;
+    }
+
+    .pill-btn.primary-export:hover {
+      background: var(--btn-active-bg);
+      color: var(--btn-active-text);
+    }
+
+    /* Export Preview Modal */
+    .export-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 90;
+      background: rgba(5, 5, 7, 0.88);
+      backdrop-filter: blur(10px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .export-modal.open {
+      display: flex;
+    }
+
+    .export-modal-box {
+      background: #141418;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      border-radius: 18px;
+      padding: 18px;
+      max-width: 390px;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      text-align: center;
+      color: #f4f4f6;
+    }
+
+    .export-modal-title {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .export-modal-box img,
+    .export-modal-box canvas {
+      width: 100%;
+      max-height: 310px;
+      object-fit: contain;
+      border-radius: 14px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      display: block;
+      background: #09090b;
+    }
+
+    .export-modal-hint {
+      font-size: 12px;
+      color: #9898a4;
+      line-height: 1.45;
+    }
+
+    .export-modal-actions {
+      display: flex;
+      gap: 8px;
+      width: 100%;
+    }
+
+    .export-modal-actions a,
+    .export-modal-actions button {
+      flex: 1;
+      text-decoration: none;
+    }
+
+    /* Clean mode */
+    body.clean-mode .project-bar,
+    body.clean-mode .studio-panel,
+    body.clean-mode .meta-header,
+    body.clean-mode .controls-panel {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    body.clean-mode .workspace-grid {
+      grid-template-columns: 1fr;
+      justify-items: center;
+    }
+
+    .restore-ui-btn {
+      position: fixed;
+      bottom: 18px;
+      right: 18px;
+      z-index: 60;
+      background: #18181c;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      color: #f4f4f6;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      padding: 8px 12px;
+      border-radius: 99px;
+      cursor: pointer;
+      display: none;
+    }
+
+    body.clean-mode .restore-ui-btn {
+      display: inline-flex;
+    }
+
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: #1c1c20;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      color: #fff;
+      font-size: 12.5px;
+      padding: 9px 16px;
+      border-radius: 99px;
+      opacity: 0;
+      pointer-events: none;
+      transition: all 0.25s ease;
+      z-index: 100;
+      white-space: nowrap;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+  </style>
+</head>
+<body>
+  <div class="ambient-bg"></div>
+  <div class="grain-overlay"></div>
+
+  <div class="app-container">
+    <!-- Top Brand Header with 3 Site Themes (Dark, White, Chrome) -->
+    <header class="project-bar">
+      <div class="project-logo">
+        <span class="project-star">✳</span>
+        <span class="project-name">EleForSs SpotiLyrics</span>
+        <span class="project-version">v1.0 (beta)</span>
+      </div>
+
+      <div class="site-theme-switcher">
+        <span class="site-theme-label">Тема сайта:</span>
+        <button type="button" class="pill-btn active" data-site-theme="dark">Dark</button>
+        <button type="button" class="pill-btn" data-site-theme="white">White</button>
+        <button type="button" class="pill-btn" data-site-theme="chrome">Chrome</button>
+      </div>
+    </header>
+
+    <div class="workspace-grid">
+      <!-- Left Studio Panel: AI Track Search & Select 1–4 Lyrics Lines -->
+      <section class="studio-panel">
+        <div class="panel-section-title">
+          <span>1. AI Поиск трека / Ссылка Spotify</span>
+          <button type="button" class="preset-chip" id="togglePasteBtn">+ Вставить свой текст</button>
+        </div>
+
+        <form class="search-box" id="trackSearchForm">
+          <input
+            type="text"
+            class="studio-input"
+            id="searchQueryInput"
+            placeholder="Ссылка Spotify, трек или строчка по памяти..."
+            autocomplete="off"
+          />
+          <button type="submit" class="pill-btn active" id="searchSubmitBtn">AI Найти</button>
+        </form>
+
+        <!-- Quick Built-in Presets -->
+        <div class="quick-presets">
+          <button type="button" class="preset-chip" data-preset="which way">Destroy Lonely — which way</button>
+          <button type="button" class="preset-chip" data-preset="flashing lights">Kanye West — Flashing Lights</button>
+          <button type="button" class="preset-chip" data-preset="runaway">Kanye West — Runaway</button>
+          <button type="button" class="preset-chip" data-preset="sky">Playboi Carti — Sky</button>
+          <button type="button" class="preset-chip" data-preset="fighting my demons">Ken Carson — Fighting My Demons</button>
+        </div>
+
+        <div class="search-results" id="searchResults"></div>
+
+        <!-- Custom Lyrics Paste Drawer -->
+        <div class="paste-drawer" id="pasteDrawer">
+          <textarea
+            class="paste-textarea"
+            id="pasteLyricsInput"
+            placeholder="Вставь сюда полный текст любой песни построчно..."
+          ></textarea>
+          <button type="button" class="pill-btn active" id="applyPastedLyricsBtn">Загрузить строки в список</button>
+        </div>
+
+        <!-- Custom Metadata & Cover Override -->
+        <div class="meta-edit-grid">
+          <input type="text" class="studio-input" id="customTitleInput" value="which way" placeholder="Название трека" />
+          <input type="text" class="studio-input" id="customArtistInput" value="Destroy Lonely" placeholder="Исполнитель" />
+        </div>
+
+        <div class="cover-upload-row">
+          <label class="pill-btn" style="flex: 1;">
+            <span>Загрузить обложку (Авто-цвет)</span>
+            <input type="file" id="coverFileInput" accept="image/*" style="display: none;" />
+          </label>
+          <button type="button" class="pill-btn" id="autoCoverColorBtn" title="Подобрать цвет под обложку">Авто-тон</button>
+          <button type="button" class="pill-btn" id="resetCoverBtn">Сброс</button>
+        </div>
+
+        <!-- Verse / Lines Selector (1 to 4 lines) -->
+        <div class="lyrics-picker-header">
+          <span class="panel-section-title">2. Выбери от 1 до 4 строчек</span>
+          <span class="selected-counter" id="selectedCounter">Выбрано: 4 / 4</span>
+        </div>
+
+        <div class="lyrics-picker-list" id="lyricsPickerList"></div>
+      </section>
+
+      <!-- Right Column: Live Spotify Card & Export -->
+      <div class="wrapper">
+        <div class="meta-header">
+          <span>✳ ELEFORSS SPOTILYRICS</span>
+          <span id="cardColorBadge">AUTO / OPIUM</span>
+        </div>
+
+        <div class="spotify-card finish-gradient" id="lyricsCard">
+          <!-- Header with Custom Opium Cover & Track Meta -->
+          <div class="card-top">
+            <div class="track-identity">
+              <div class="album-cover" id="albumCoverBox" aria-hidden="true">
+                <img id="albumCoverImg" crossorigin="anonymous" alt="Album Cover" />
+                <svg id="albumCoverDefaultSvg" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <defs>
+                    <linearGradient id="chromeGrad" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
+                      <stop offset="0%" stop-color="#ffffff" />
+                      <stop offset="45%" stop-color="#9a9aa6" />
+                      <stop offset="75%" stop-color="#2c2c32" />
+                      <stop offset="100%" stop-color="#e4e4ec" />
+                    </linearGradient>
+                  </defs>
+                  <path d="M32 2L36.2 25.4L58 18L40.4 32L58 46L36.2 38.6L32 62L27.8 38.6L6 46L23.6 32L6 18L27.8 25.4L32 2Z" fill="url(#chromeGrad)" />
+                </svg>
+              </div>
+              <div class="track-details">
+                <div class="track-title-row">
+                  <span class="track-title" id="cardTrackTitle">which way</span>
+                  <span class="explicit-tag" title="Explicit">E</span>
+                </div>
+                <span class="artist-name" id="cardArtistName">Destroy Lonely</span>
+              </div>
+            </div>
+
+            <div class="equalizer" id="equalizer" title="Анимация эквалайзера">
+              <span class="eq-bar"></span>
+              <span class="eq-bar"></span>
+              <span class="eq-bar"></span>
+              <span class="eq-bar"></span>
+            </div>
+          </div>
+
+          <!-- Dynamic Lyrics Lines (1 to 4 selected lines) -->
+          <div class="lyrics-stack" id="lyricsStack"></div>
+
+          <!-- Minimalist Spotify Progress Bar -->
+          <div class="player-progress">
+            <div class="progress-track">
+              <div class="progress-fill" id="progressFill"></div>
+            </div>
+            <div class="progress-times">
+              <span id="currentTime">0:27</span>
+              <span id="remainingTime">-1:48</span>
+            </div>
+          </div>
+
+          <!-- Footer with Spotify Logo & Gothic Stamp -->
+          <div class="card-footer">
+            <div class="spotify-brand">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/>
+              </svg>
+              <span>Spotify</span>
+            </div>
+            <span class="gothic-stamp">OPIUM*</span>
+          </div>
+        </div>
+
+        <!-- Card Color Palette, Surface Finish & Export Controls -->
+        <div class="controls-panel">
+          <!-- Built-in Color Palette + Custom Color Picker -->
+          <div class="color-palette-bar">
+            <span class="panel-section-title">Цвет карточки:</span>
+            <div class="swatches-group">
+              <button type="button" class="color-swatch active" data-color="#18181b" style="background: #18181b;" title="Opium Void"></button>
+              <button type="button" class="color-swatch" data-color="#2c2c34" style="background: #3a3a44;" title="Chrome Silver"></button>
+              <button type="button" class="color-swatch" data-color="#4c1118" style="background: #6b1620;" title="Crimson Vamp"></button>
+              <button type="button" class="color-swatch" data-color="#3b1854" style="background: #532078;" title="Graduation Purple"></button>
+              <button type="button" class="color-swatch" data-color="#132a4a" style="background: #1a3c6b;" title="Midnight Blue"></button>
+              <button type="button" class="color-swatch" data-color="#123824" style="background: #195234;" title="Emerald Dark"></button>
+              <button type="button" class="color-swatch" data-color="#523514" style="background: #784c1b;" title="Amber / Yeezus"></button>
+              <input type="color" class="custom-color-picker" id="customColorInput" value="#18181b" title="Свой оттенок из палитры" />
+            </div>
+          </div>
+
+          <!-- Surface Finish (Gradient, Matte, Glossy) + Clean Mode -->
+          <div class="controls-row">
+            <div class="finish-switchers">
+              <button type="button" class="pill-btn active" data-finish="gradient">Градиент</button>
+              <button type="button" class="pill-btn" data-finish="matte">Матовый</button>
+              <button type="button" class="pill-btn" data-finish="glossy">Глянцевый</button>
+            </div>
+            <div class="action-btns">
+              <button type="button" class="pill-btn" id="cleanModeBtn">Чистый вид</button>
+            </div>
+          </div>
+
+          <div class="export-btns">
+            <button type="button" class="pill-btn primary-export" id="downloadPngBtn">Скачать PNG</button>
+            <button type="button" class="pill-btn primary-export" id="downloadVideoBtn">Скачать Видео для ТГ</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Export Preview Modal -->
+  <div class="export-modal" id="exportModal">
+    <div class="export-modal-box">
+      <div class="export-modal-title" id="exportModalTitle">Видео готово</div>
+      <img id="exportPreviewImg" alt="Готовая карточка" style="display: none;" />
+      <canvas id="exportLivePreview" style="display: none;"></canvas>
+      <div class="export-modal-hint" id="exportModalHint">
+        Нажми белую кнопку <strong>«Скачать видео (.avi)»</strong> или кликни по ней <strong>ПКМ → «Сохранить ссылку как...»</strong>.
+      </div>
+      <div class="export-modal-actions">
+        <a id="modalDirectLink" class="pill-btn active" href="#" download="eleforss-spotilyrics.avi">Скачать файл</a>
+        <button type="button" class="pill-btn" id="closeModalBtn">Закрыть</button>
+      </div>
+    </div>
+  </div>
+
+  <button type="button" class="restore-ui-btn" id="restoreUiBtn">Показать кнопки</button>
+  <div class="toast" id="toast">Готово</div>
+
+  <script>
+    const card = document.getElementById('lyricsCard');
+    const cardColorBadge = document.getElementById('cardColorBadge');
+    const lyricsStack = document.getElementById('lyricsStack');
+    const lyricsPickerList = document.getElementById('lyricsPickerList');
+    const selectedCounter = document.getElementById('selectedCounter');
+    const progressFill = document.getElementById('progressFill');
+    const currentTime = document.getElementById('currentTime');
+    const remainingTime = document.getElementById('remainingTime');
+    const siteThemeBtns = document.querySelectorAll('.site-theme-switcher .pill-btn');
+    const finishBtns = document.querySelectorAll('.finish-switchers .pill-btn');
+    const colorSwatches = document.querySelectorAll('.color-swatch');
+    const customColorInput = document.getElementById('customColorInput');
+    const cleanModeBtn = document.getElementById('cleanModeBtn');
+    const restoreUiBtn = document.getElementById('restoreUiBtn');
+    const downloadPngBtn = document.getElementById('downloadPngBtn');
+    const downloadVideoBtn = document.getElementById('downloadVideoBtn');
+    const exportModal = document.getElementById('exportModal');
+    const exportModalTitle = document.getElementById('exportModalTitle');
+    const exportModalHint = document.getElementById('exportModalHint');
+    const exportPreviewImg = document.getElementById('exportPreviewImg');
+    const exportLivePreview = document.getElementById('exportLivePreview');
+    const modalDirectLink = document.getElementById('modalDirectLink');
+    const closeModalBtn = document.getElementById('closeModalBtn');
+    const toast = document.getElementById('toast');
+
+    // Search & Custom Inputs
+    const trackSearchForm = document.getElementById('trackSearchForm');
+    const searchQueryInput = document.getElementById('searchQueryInput');
+    const searchSubmitBtn = document.getElementById('searchSubmitBtn');
+    const searchResults = document.getElementById('searchResults');
+    const togglePasteBtn = document.getElementById('togglePasteBtn');
+    const pasteDrawer = document.getElementById('pasteDrawer');
+    const pasteLyricsInput = document.getElementById('pasteLyricsInput');
+    const applyPastedLyricsBtn = document.getElementById('applyPastedLyricsBtn');
+    const presetChips = document.querySelectorAll('.quick-presets .preset-chip');
+    const customTitleInput = document.getElementById('customTitleInput');
+    const customArtistInput = document.getElementById('customArtistInput');
+    const cardTrackTitle = document.getElementById('cardTrackTitle');
+    const cardArtistName = document.getElementById('cardArtistName');
+    const coverFileInput = document.getElementById('coverFileInput');
+    const autoCoverColorBtn = document.getElementById('autoCoverColorBtn');
+    const resetCoverBtn = document.getElementById('resetCoverBtn');
+    const albumCoverImg = document.getElementById('albumCoverImg');
+    const albumCoverDefaultSvg = document.getElementById('albumCoverDefaultSvg');
+
+    let cardBaseHex = '#18181b';
+    let cardFinish = 'gradient';
+    let customCoverImageObj = null;
+    let lastExportBytes = null;
+    let lastExportMime = 'video/avi';
+    let lastExportFilename = 'eleforss-spotilyrics.avi';
+    let previewAnimTimer = null;
+
+    // Built-in catalog (Works offline & inside sandboxed iframes)
+    const BUILTIN_CATALOG = [
+      {
+        id: 'which way',
+        trackName: 'which way',
+        artistName: 'Destroy Lonely',
+        duration: 135,
+        themeColor: '#18181b',
+        source: 'PRESET',
+        lines: [
+          { text: "I don't know which way I'm goin'", time: '0:18', progress: 22 },
+          { text: 'I take the purple Wockhardt and pour it', time: '0:21', progress: 26 },
+          { text: 'I bought some brand-new, new Rick Owens', time: '0:24', progress: 30 },
+          { text: "I got a new bad bitch and she goin' all the way up with me", time: '0:27', progress: 35 },
+          { text: "Yeah, I'm in the coupe, yeah, I'm swervin'", time: '0:31', progress: 40 },
+          { text: "All black fit, yeah, I'm lurkin'", time: '0:34', progress: 44 }
+        ]
+      },
+      {
+        id: 'flashing lights',
+        trackName: 'Flashing Lights',
+        artistName: 'Kanye West',
+        duration: 237,
+        themeColor: '#3b1854',
+        source: 'PRESET',
+        lines: [
+          { text: 'Flashing lights (lights, lights, lights)', time: '0:48', progress: 20 },
+          { text: 'She don’t believe in shootin’ stars', time: '0:54', progress: 23 },
+          { text: 'But she believe in shoes and cars', time: '0:58', progress: 25 },
+          { text: 'Wood floors in the new apartment', time: '1:02', progress: 27 },
+          { text: 'Couture from the store’s departments', time: '1:06', progress: 29 },
+          { text: 'You more like love to start shit', time: '1:10', progress: 31 }
+        ]
+      },
+      {
+        id: 'runaway',
+        trackName: 'Runaway',
+        artistName: 'Kanye West',
+        duration: 547,
+        themeColor: '#4c1118',
+        source: 'PRESET',
+        lines: [
+          { text: 'And I always find, yeah, I always find somethin’ wrong', time: '1:45', progress: 20 },
+          { text: 'You been puttin’ up wit’ my shit just way too long', time: '1:52', progress: 22 },
+          { text: 'I’m so gifted at findin’ what I don’t like the most', time: '1:59', progress: 24 },
+          { text: 'So I think it’s time for us to have a toast', time: '2:06', progress: 26 },
+          { text: 'Let’s have a toast for the douchebags', time: '2:12', progress: 28 },
+          { text: 'Let’s have a toast for the assholes', time: '2:17', progress: 30 }
+        ]
+      },
+      {
+        id: 'sky',
+        trackName: 'Sky',
+        artistName: 'Playboi Carti',
+        duration: 193,
+        themeColor: '#232328',
+        source: 'PRESET',
+        lines: [
+          { text: 'Wake up, it’s the first of the month', time: '0:42', progress: 22 },
+          { text: 'I brush my teeth and count up', time: '0:45', progress: 24 },
+          { text: 'I let my bitch roll my blunt', time: '0:48', progress: 26 },
+          { text: "I'm 'bout to dirty my cup", time: '0:51', progress: 28 },
+          { text: "I'm way too high (Yeah, what?)", time: '0:55', progress: 30 },
+          { text: 'I got some racks, yeah, yeah', time: '1:02', progress: 35 }
+        ]
+      },
+      {
+        id: 'fighting my demons',
+        trackName: 'Fighting My Demons',
+        artistName: 'Ken Carson',
+        duration: 150,
+        themeColor: '#16161a',
+        source: 'PRESET',
+        lines: [
+          { text: "I've been fighting my demons, huh", time: '0:24', progress: 18 },
+          { text: "I've been fighting my, huh, yeah", time: '0:27', progress: 21 },
+          { text: "I've been fighting my demons, huh", time: '0:30', progress: 24 },
+          { text: 'Every day, every night, yeah', time: '0:33', progress: 27 },
+          { text: 'All black Balenci, yeah, I step in the dark', time: '0:37', progress: 31 },
+          { text: 'Chrome Hearts cross on my neck, yeah, it spark', time: '0:41', progress: 35 }
+        ]
+      }
+    ];
+
+    let songLines = [...BUILTIN_CATALOG[0].lines];
+    let selectedIndices = [0, 1, 2, 3];
+    let focusedIndex = 3;
+
+    const SPOTIFY_SVG_PATH = new Path2D(
+      'M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z'
+    );
+
+    function showToast(msg, duration = 2600) {
+      toast.textContent = msg;
+      toast.classList.add('show');
+      clearTimeout(toast._timer);
+      toast._timer = setTimeout(() => toast.classList.remove('show'), duration);
+    }
+
+    function hexToRgb(hex) {
+      const clean = hex.replace('#', '');
+      const num = parseInt(clean, 16);
+      return {
+        r: (num >> 16) & 255,
+        g: (num >> 8) & 255,
+        b: num & 255
+      };
+    }
+
+    function rgbToHex(r, g, b) {
+      const clamp = (v) => Math.max(0, Math.min(255, Math.round(v)));
+      return '#' + [clamp(r), clamp(g), clamp(b)].map((x) => x.toString(16).padStart(2, '0')).join('');
+    }
+
+    function adjustRgb(rgb, factor) {
+      return {
+        r: Math.max(0, Math.min(255, Math.round(rgb.r * factor))),
+        g: Math.max(0, Math.min(255, Math.round(rgb.g * factor))),
+        b: Math.max(0, Math.min(255, Math.round(rgb.b * factor)))
+      };
+    }
+
+    // Extract dominant rich color from uploaded or AI-fetched album cover
+    function extractDominantColorFromImage(imgEl) {
+      try {
+        const c = document.createElement('canvas');
+        c.width = 32;
+        c.height = 32;
+        const ctx = c.getContext('2d');
+        ctx.drawImage(imgEl, 0, 0, 32, 32);
+        const data = ctx.getImageData(0, 0, 32, 32).data;
+
+        let rSum = 0, gSum = 0, bSum = 0, weightSum = 0;
+        for (let i = 0; i < data.length; i += 4) {
+          const r = data[i];
+          const g = data[i + 1];
+          const b = data[i + 2];
+          const max = Math.max(r, g, b);
+          const min = Math.min(r, g, b);
+          const sat = max === 0 ? 0 : (max - min) / max;
+          const lum = (r + g + b) / 3;
+          const weight = 1 + sat * 4 + (lum > 30 && lum < 210 ? 1.5 : 0);
+          rSum += r * weight;
+          gSum += g * weight;
+          bSum += b * weight;
+          weightSum += weight;
+        }
+
+        let avgR = rSum / weightSum;
+        let avgG = gSum / weightSum;
+        let avgB = bSum / weightSum;
+
+        const maxCh = Math.max(avgR, avgG, avgB, 1);
+        if (maxCh > 115) {
+          const scale = 115 / maxCh;
+          avgR *= scale;
+          avgG *= scale;
+          avgB *= scale;
+        } else if (maxCh < 28) {
+          avgR = Math.max(24, avgR);
+          avgG = Math.max(24, avgG);
+          avgB = Math.max(28, avgB);
+        }
+
+        return rgbToHex(avgR, avgG, avgB);
+      } catch (e) {
+        return cardBaseHex;
+      }
+    }
+
+    function applyRemoteCoverUrl(url, fallbackHex) {
+      if (!url) {
+        if (fallbackHex) updateCardAppearance(fallbackHex, cardFinish);
+        return;
+      }
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        customCoverImageObj = img;
+        albumCoverImg.src = url;
+        albumCoverImg.style.display = 'block';
+        albumCoverDefaultSvg.style.display = 'none';
+        const adaptiveHex = extractDominantColorFromImage(img);
+        updateCardAppearance(adaptiveHex || fallbackHex || cardBaseHex, cardFinish);
+      };
+      img.onerror = () => {
+        if (fallbackHex) updateCardAppearance(fallbackHex, cardFinish);
+      };
+      img.src = url;
+    }
+
+    function updateCardAppearance(newHex = cardBaseHex, newFinish = cardFinish) {
+      cardBaseHex = newHex;
+      cardFinish = newFinish;
+      customColorInput.value = cardBaseHex;
+
+      const base = hexToRgb(cardBaseHex);
+      const light = adjustRgb(base, 1.38);
+      const dark = adjustRgb(base, 0.36);
+
+      card.classList.remove('finish-gradient', 'finish-matte', 'finish-glossy');
+      card.classList.add('finish-' + cardFinish);
+
+      if (cardFinish === 'matte') {
+        card.style.background = `rgb(${base.r}, ${base.g}, ${base.b})`;
+      } else if (cardFinish === 'glossy') {
+        card.style.background = `linear-gradient(155deg, rgb(${light.r}, ${light.g}, ${light.b}) 0%, rgb(${base.r}, ${base.g}, ${base.b}) 48%, rgb(${dark.r}, ${dark.g}, ${dark.b}) 100%)`;
+      } else {
+        card.style.background = `linear-gradient(160deg, rgb(${light.r}, ${light.g}, ${light.b}) 0%, rgb(${base.r}, ${base.g}, ${base.b}) 55%, rgb(${dark.r}, ${dark.g}, ${dark.b}) 100%)`;
+      }
+
+      cardColorBadge.textContent = `${cardBaseHex.toUpperCase()} • ${cardFinish.toUpperCase()}`;
+
+      colorSwatches.forEach((sw) => {
+        sw.classList.toggle('active', sw.dataset.color.toLowerCase() === cardBaseHex.toLowerCase());
+      });
+    }
+
+    // Site Theme Switcher (Dark, White, Chrome)
+    siteThemeBtns.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        siteThemeBtns.forEach((b) => b.classList.remove('active'));
+        btn.classList.add('active');
+        document.body.classList.remove('site-white', 'site-chrome');
+        const mode = btn.dataset.siteTheme;
+        if (mode === 'white') document.body.classList.add('site-white');
+        if (mode === 'chrome') document.body.classList.add('site-chrome');
+      });
+    });
+
+    // Surface Finish Switcher (Gradient, Matte, Glossy)
+    finishBtns.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        finishBtns.forEach((b) => b.classList.remove('active'));
+        btn.classList.add('active');
+        updateCardAppearance(cardBaseHex, btn.dataset.finish);
+      });
+    });
+
+    // Built-in Color Swatches & Native Color Picker
+    colorSwatches.forEach((sw) => {
+      sw.addEventListener('click', () => {
+        updateCardAppearance(sw.dataset.color, cardFinish);
+      });
+    });
+
+    customColorInput.addEventListener('input', (e) => {
+      updateCardAppearance(e.target.value, cardFinish);
+    });
+
+    function loadTrackIntoStudio(trackData) {
+      customTitleInput.value = trackData.trackName;
+      customArtistInput.value = trackData.artistName;
+      cardTrackTitle.textContent = trackData.trackName;
+      cardArtistName.textContent = trackData.artistName;
+
+      if (trackData.duration) {
+        const remSec = Math.max(15, Math.round(trackData.duration * 0.65));
+        const rm = Math.floor(remSec / 60);
+        const rs = remSec % 60;
+        remainingTime.textContent = `-${rm}:${rs.toString().padStart(2, '0')}`;
+      }
+
+      if (trackData.coverUrl) {
+        applyRemoteCoverUrl(trackData.coverUrl, trackData.themeColor);
+      } else if (!customCoverImageObj && trackData.themeColor) {
+        updateCardAppearance(trackData.themeColor, cardFinish);
+      }
+
+      songLines = trackData.lines;
+      const initialCount = Math.min(4, songLines.length);
+      selectedIndices = Array.from({ length: initialCount }, (_, i) => i);
+      focusedIndex = selectedIndices[selectedIndices.length - 1];
+      renderLyricsUI();
+      showToast(`Загружен трек: ${trackData.artistName} — ${trackData.trackName}`);
+    }
+
+    presetChips.forEach((chip) => {
+      if (!chip.dataset.preset) return;
+      chip.addEventListener('click', () => {
+        const found = BUILTIN_CATALOG.find((t) => t.id === chip.dataset.preset);
+        if (found) {
+          searchQueryInput.value = `${found.artistName} ${found.trackName}`;
+          searchResults.classList.remove('open');
+          loadTrackIntoStudio(found);
+        }
+      });
+    });
+
+    togglePasteBtn.addEventListener('click', () => {
+      pasteDrawer.classList.toggle('open');
+    });
+
+    applyPastedLyricsBtn.addEventListener('click', () => {
+      const raw = pasteLyricsInput.value.trim();
+      if (!raw) {
+        showToast('Вставь хотя бы одну строчку текста');
+        return;
+      }
+      const rows = raw
+        .split('\n')
+        .map((l) => l.trim())
+        .filter((l) => l.length > 0 && !l.startsWith('['));
+
+      if (rows.length === 0) {
+        showToast('Не найдено подходящих строк');
+        return;
+      }
+
+      songLines = rows.map((txt, idx) => {
+        const pct = Math.min(92, Math.max(8, Math.round(((idx + 1) / (rows.length + 1)) * 100)));
+        const estSec = Math.round((pct / 100) * 160);
+        const m = Math.floor(estSec / 60);
+        const s = estSec % 60;
+        return {
+          text: txt,
+          time: `${m}:${s.toString().padStart(2, '0')}`,
+          progress: pct
+        };
+      });
+
+      const initialCount = Math.min(4, songLines.length);
+      selectedIndices = Array.from({ length: initialCount }, (_, i) => i);
+      focusedIndex = selectedIndices[selectedIndices.length - 1];
+      renderLyricsUI();
+      pasteDrawer.classList.remove('open');
+      showToast(`Загружено ${songLines.length} строк текста`);
+    });
+
+    function renderLyricsUI() {
+      selectedIndices = selectedIndices
+        .filter((idx) => idx >= 0 && idx < songLines.length)
+        .sort((a, b) => a - b);
+
+      if (selectedIndices.length === 0 && songLines.length > 0) {
+        selectedIndices = [0];
+      }
+      if (!selectedIndices.includes(focusedIndex)) {
+        focusedIndex = selectedIndices[selectedIndices.length - 1];
+      }
+
+      selectedCounter.textContent = `Выбрано: ${selectedIndices.length} / 4`;
+
+      lyricsPickerList.innerHTML = '';
+      songLines.forEach((lineObj, idx) => {
+        const isPicked = selectedIndices.includes(idx);
+        const isFocus = idx === focusedIndex;
+
+        const row = document.createElement('div');
+        row.className = 'picker-line' + (isPicked ? ' picked' : '') + (isFocus ? ' picked-focus' : '');
+
+        const textSpan = document.createElement('span');
+        textSpan.textContent = lineObj.text;
+        row.appendChild(textSpan);
+
+        if (isFocus) {
+          const badge = document.createElement('span');
+          badge.className = 'picker-badge';
+          badge.textContent = 'АКЦЕНТ';
+          row.appendChild(badge);
+        } else if (isPicked) {
+          const badge = document.createElement('span');
+          badge.className = 'picker-badge';
+          badge.textContent = '✓';
+          row.appendChild(badge);
+        }
+
+        row.addEventListener('click', () => {
+          if (isPicked) {
+            if (selectedIndices.length === 1) {
+              showToast('Должна остаться минимум 1 строчка');
+              return;
+            }
+            selectedIndices = selectedIndices.filter((i) => i !== idx);
+          } else {
+            if (selectedIndices.length >= 4) {
+              showToast('Максимум 4 строчки — сними одну, чтобы добавить новую');
+              return;
+            }
+            selectedIndices.push(idx);
+            focusedIndex = idx;
+          }
+          renderLyricsUI();
+        });
+
+        lyricsPickerList.appendChild(row);
+      });
+
+      lyricsStack.innerHTML = '';
+      selectedIndices.forEach((idx) => {
+        const lineObj = songLines[idx];
+        const div = document.createElement('div');
+        div.className = 'lyric-line' + (idx === focusedIndex ? ' active' : '');
+        div.textContent = lineObj.text;
+        div.dataset.time = lineObj.time || '0:27';
+        div.dataset.progress = lineObj.progress || 35;
+
+        div.addEventListener('click', () => {
+          focusedIndex = idx;
+          renderLyricsUI();
+        });
+
+        lyricsStack.appendChild(div);
+      });
+
+      const activeLineObj = songLines[focusedIndex] || songLines[selectedIndices[0]];
+      if (activeLineObj) {
+        currentTime.textContent = activeLineObj.time || '0:27';
+        progressFill.style.width = (activeLineObj.progress || 35) + '%';
+      }
+    }
+
+    function parseLrclibTrack(item) {
+      const durationSec = item.duration || 150;
+      const linesOut = [];
+
+      if (item.syncedLyrics) {
+        const rawLines = item.syncedLyrics.split('\n');
+        const timeRegex = /^\[(\d{1,2}):(\d{2})(?:\.\d+)?\]\s*(.*)$/;
+        for (const raw of rawLines) {
+          const match = raw.trim().match(timeRegex);
+          if (match && match[3].trim()) {
+            const mins = parseInt(match[1], 10);
+            const secs = parseInt(match[2], 10);
+            const totalSec = mins * 60 + secs;
+            const pct = Math.min(95, Math.max(5, Math.round((totalSec / durationSec) * 100)));
+            linesOut.push({
+              text: match[3].trim(),
+              time: `${mins}:${secs.toString().padStart(2, '0')}`,
+              progress: pct
+            });
+          }
+        }
+      }
+
+      if (linesOut.length === 0 && item.plainLyrics) {
+        const rawPlain = item.plainLyrics
+          .split('\n')
+          .map((l) => l.trim())
+          .filter((l) => l.length > 0 && !l.startsWith('['));
+        rawPlain.forEach((txt, idx) => {
+          const pct = Math.min(92, Math.max(8, Math.round(((idx + 1) / (rawPlain.length + 1)) * 100)));
+          const estSec = Math.round((pct / 100) * durationSec);
+          const m = Math.floor(estSec / 60);
+          const s = estSec % 60;
+          linesOut.push({
+            text: txt,
+            time: `${m}:${s.toString().padStart(2, '0')}`,
+            progress: pct
+          });
+        });
+      }
+
+      return linesOut;
+    }
+
+    // Hybrid AI Search:
+    // 1) Local built-in catalog
+    // 2) Serverless /api/search endpoint (Gemini AI + Spotify/iTunes Cover + LRCLIB) when deployed on Vercel
+    // 3) Direct LRCLIB fallback when hosted on static GitHub Pages
+    trackSearchForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const query = searchQueryInput.value.trim();
+      if (!query) return;
+
+      searchSubmitBtn.disabled = true;
+      searchSubmitBtn.textContent = 'AI...';
+      searchResults.innerHTML = '';
+
+      const qLower = query.toLowerCase();
+      const tokens = qLower.split(/\s+/).filter(Boolean);
+
+      const localMatches = BUILTIN_CATALOG.filter((item) => {
+        const hay = `${item.artistName} ${item.trackName}`.toLowerCase();
+        return tokens.every((tok) => hay.includes(tok));
+      });
+
+      let backendAiMatch = null;
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 8000);
+        const apiRes = await fetch(`/api/search?q=${encodeURIComponent(query)}`, {
+          signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+        if (apiRes.ok) {
+          const aiData = await apiRes.json();
+          if (aiData && aiData.lines && aiData.lines.length > 0) {
+            backendAiMatch = {
+              trackName: aiData.trackName,
+              artistName: aiData.artistName,
+              duration: aiData.duration || 160,
+              coverUrl: aiData.coverUrl || null,
+              themeColor: aiData.themeColor || '#18181b',
+              source: 'AI SEARCH',
+              lines: aiData.lines
+            };
+          }
+        }
+      } catch (err) {
+        // Fallback if static hosting without /api/search
+      }
+
+      let lrclibMatches = [];
+      if (!backendAiMatch) {
+        try {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 3500);
+          const res = await fetch(`https://lrclib.net/api/search?q=${encodeURIComponent(query)}`, {
+            signal: controller.signal
+          });
+          clearTimeout(timeoutId);
+          if (res.ok) {
+            const data = await res.json();
+            lrclibMatches = (Array.isArray(data) ? data : [])
+              .filter((t) => t.syncedLyrics || t.plainLyrics)
+              .slice(0, 6)
+              .map((t) => ({
+                trackName: t.trackName || t.name || 'Unknown Track',
+                artistName: t.artistName || 'Unknown Artist',
+                duration: t.duration || 150,
+                source: t.syncedLyrics ? 'SYNCED' : 'LRCLIB',
+                lines: parseLrclibTrack(t)
+              }))
+              .filter((t) => t.lines.length > 0);
+          }
+        } catch (err) {}
+      }
+
+      const combined = [
+        ...(backendAiMatch ? [backendAiMatch] : []),
+        ...localMatches,
+        ...lrclibMatches
+      ];
+
+      if (combined.length === 0) {
+        searchResults.classList.remove('open');
+        pasteDrawer.classList.add('open');
+        showToast('В режиме превью доступен встроенный каталог и ручная вставка текста', 3800);
+        searchSubmitBtn.disabled = false;
+        searchSubmitBtn.textContent = 'AI Найти';
+        return;
+      }
+
+      combined.forEach((track) => {
+        const itemEl = document.createElement('div');
+        itemEl.className = 'search-item';
+
+        const info = document.createElement('div');
+        info.className = 'search-item-info';
+
+        const titleEl = document.createElement('div');
+        titleEl.className = 'search-item-title';
+        titleEl.textContent = track.trackName;
+
+        const artistEl = document.createElement('div');
+        artistEl.className = 'search-item-artist';
+        artistEl.textContent = track.artistName;
+
+        info.appendChild(titleEl);
+        info.appendChild(artistEl);
+
+        const tag = document.createElement('span');
+        tag.className = 'search-item-tag';
+        tag.textContent = track.source;
+
+        itemEl.appendChild(info);
+        itemEl.appendChild(tag);
+
+        itemEl.addEventListener('click', () => {
+          loadTrackIntoStudio(track);
+          searchResults.classList.remove('open');
+        });
+
+        searchResults.appendChild(itemEl);
+      });
+
+      searchResults.classList.add('open');
+      if (backendAiMatch || combined.length === 1) {
+        loadTrackIntoStudio(combined[0]);
+      }
+
+      searchSubmitBtn.disabled = false;
+      searchSubmitBtn.textContent = 'AI Найти';
+    });
+
+    customTitleInput.addEventListener('input', () => {
+      cardTrackTitle.textContent = customTitleInput.value.trim() || 'Untitled';
+    });
+
+    customArtistInput.addEventListener('input', () => {
+      cardArtistName.textContent = customArtistInput.value.trim() || 'Artist';
+    });
+
+    coverFileInput.addEventListener('change', (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const img = new Image();
+        img.onload = () => {
+          customCoverImageObj = img;
+          albumCoverImg.src = ev.target.result;
+          albumCoverImg.style.display = 'block';
+          albumCoverDefaultSvg.style.display = 'none';
+
+          const adaptiveHex = extractDominantColorFromImage(img);
+          updateCardAppearance(adaptiveHex, cardFinish);
+          showToast(`Обложка загружена • Цвет адаптирован (${adaptiveHex})`);
+        };
+        img.src = ev.target.result;
+      };
+      reader.readAsDataURL(file);
+    });
+
+    autoCoverColorBtn.addEventListener('click', () => {
+      if (!customCoverImageObj) {
+        showToast('Сначала загрузи картинку обложки');
+        return;
+      }
+      const adaptiveHex = extractDominantColorFromImage(customCoverImageObj);
+      updateCardAppearance(adaptiveHex, cardFinish);
+      showToast(`Оттенок подобран под обложку (${adaptiveHex})`);
+    });
+
+    resetCoverBtn.addEventListener('click', () => {
+      customCoverImageObj = null;
+      coverFileInput.value = '';
+      albumCoverImg.style.display = 'none';
+      albumCoverDefaultSvg.style.display = 'block';
+      updateCardAppearance('#18181b', cardFinish);
+      showToast('Обложка и оттенок сброшены');
+    });
+
+    function closeExportModal() {
+      exportModal.classList.remove('open');
+      if (previewAnimTimer) {
+        clearInterval(previewAnimTimer);
+        previewAnimTimer = null;
+      }
+    }
+
+    closeModalBtn.addEventListener('click', closeExportModal);
+    exportModal.addEventListener('click', (e) => {
+      if (e.target === exportModal) closeExportModal();
+    });
+
+    modalDirectLink.addEventListener('click', async (e) => {
+      if (lastExportBytes && typeof window.showSaveFilePicker === 'function') {
+        e.preventDefault();
+        try {
+          const ext = lastExportFilename.split('.').pop();
+          const handle = await window.showSaveFilePicker({
+            suggestedName: lastExportFilename,
+            types: [
+              {
+                description: ext === 'png' ? 'PNG Image' : 'AVI Video',
+                accept: { [lastExportMime]: ['.' + ext] }
+              }
+            ]
+          });
+          const writable = await handle.createWritable();
+          await writable.write(lastExportBytes);
+          await writable.close();
+          showToast('Файл сохранён на диск!');
+        } catch (err) {
+          if (err && err.name !== 'AbortError') {
+            showToast('Кликни ПКМ по белой кнопке → «Сохранить ссылку как...»', 3800);
+          }
+        }
+      } else {
+        showToast('Если не скачалось — ПКМ по кнопке → «Сохранить ссылку как...»', 3800);
+      }
+    });
+
+    cleanModeBtn.addEventListener('click', () => {
+      document.body.classList.add('clean-mode');
+      showToast('Кнопки скрыты — можно делать скрин или запись');
+    });
+
+    restoreUiBtn.addEventListener('click', () => {
+      document.body.classList.remove('clean-mode');
+    });
+
+    function wrapTextLines(ctx, text, maxWidth) {
+      const words = text.split(' ');
+      const wrapped = [];
+      let current = '';
+      for (let i = 0; i < words.length; i++) {
+        const testLine = current ? current + ' ' + words[i] : words[i];
+        if (ctx.measureText(testLine).width > maxWidth && current) {
+          wrapped.push(current);
+          current = words[i];
+        } else {
+          current = testLine;
+        }
+      }
+      if (current) wrapped.push(current);
+      return wrapped;
+    }
+
+    function roundRect(ctx, x, y, w, h, r) {
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.arcTo(x + w, y, x + w, y + h, r);
+      ctx.arcTo(x + w, y + h, x, y + h, r);
+      ctx.arcTo(x, y + h, x, y, r);
+      ctx.arcTo(x, y, x + w, y, r);
+      ctx.closePath();
+    }
+
+    function computeCardMetrics(targetWidth) {
+      const W = 440;
+      const padX = 28;
+      const contentW = W - padX * 2;
+      const tempCanvas = document.createElement('canvas');
+      const tCtx = tempCanvas.getContext('2d');
+      const allLines = Array.from(document.querySelectorAll('.lyric-line'));
+
+      let lyricsBlockHeight = 0;
+      const measuredLyrics = allLines.map((el) => {
+        const isActive = el.classList.contains('active');
+        const fontSize = isActive ? 23 : 19;
+        const lineHeight = Math.round(fontSize * 1.28);
+        tCtx.font = `${isActive ? 800 : 700} ${fontSize}px Inter, -apple-system, BlinkMacSystemFont, sans-serif`;
+        const wrapped = wrapTextLines(tCtx, el.textContent.trim(), contentW - (isActive ? 4 : 0));
+        const h = wrapped.length * lineHeight;
+        lyricsBlockHeight += h + 14;
+        return { isActive, fontSize, lineHeight, wrapped };
+      });
+      lyricsBlockHeight -= 14;
+
+      const rawH = 28 + 48 + 26 + lyricsBlockHeight + 28 + 24 + 22 + 34 + 24;
+      const outW = Math.round(targetWidth / 16) * 16;
+      const scaleX = outW / W;
+      const outH = Math.ceil((rawH * scaleX) / 16) * 16;
+      const logicalH = outH / scaleX;
+
+      return { W, padX, contentW, measuredLyrics, outW, outH, scaleX, logicalH };
+    }
+
+    function drawCardFrame(targetCanvas, metrics, eqHeights = [7, 15, 10, 13]) {
+      const { W, padX, contentW, measuredLyrics, scaleX, logicalH } = metrics;
+      const ctx = targetCanvas.getContext('2d');
+      ctx.save();
+      ctx.scale(scaleX, scaleX);
+
+      const base = hexToRgb(cardBaseHex);
+      const light = adjustRgb(base, 1.38);
+      const dark = adjustRgb(base, 0.36);
+
+      if (cardFinish === 'matte') {
+        ctx.fillStyle = `rgb(${base.r}, ${base.g}, ${base.b})`;
+        ctx.fillRect(0, 0, W, logicalH);
+      } else {
+        const bgGrad = ctx.createLinearGradient(0, 0, W * 0.4, logicalH);
+        bgGrad.addColorStop(0, `rgb(${light.r}, ${light.g}, ${light.b})`);
+        bgGrad.addColorStop(0.52, `rgb(${base.r}, ${base.g}, ${base.b})`);
+        bgGrad.addColorStop(1, `rgb(${dark.r}, ${dark.g}, ${dark.b})`);
+        ctx.fillStyle = bgGrad;
+        ctx.fillRect(0, 0, W, logicalH);
+      }
+
+      if (cardFinish === 'glossy') {
+        const glossGrad = ctx.createLinearGradient(0, 0, W * 0.75, logicalH * 0.65);
+        glossGrad.addColorStop(0, 'rgba(255, 255, 255, 0.24)');
+        glossGrad.addColorStop(0.42, 'rgba(255, 255, 255, 0.04)');
+        glossGrad.addColorStop(0.65, 'rgba(255, 255, 255, 0)');
+        ctx.fillStyle = glossGrad;
+        ctx.fillRect(0, 0, W, logicalH);
+      }
+
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(0.5, 0.5, W - 1, logicalH - 1);
+
+      const covX = padX;
+      const covY = 28;
+      const covSize = 48;
+      ctx.save();
+      roundRect(ctx, covX, covY, covSize, covSize, 8);
+      ctx.clip();
+
+      if (customCoverImageObj) {
+        const iw = customCoverImageObj.width;
+        const ih = customCoverImageObj.height;
+        const scale = Math.max(covSize / iw, covSize / ih);
+        const dw = iw * scale;
+        const dh = ih * scale;
+        ctx.drawImage(customCoverImageObj, covX + (covSize - dw) / 2, covY + (covSize - dh) / 2, dw, dh);
+      } else {
+        const covGrad = ctx.createRadialGradient(covX + 14, covY + 12, 2, covX + 24, covY + 24, 38);
+        covGrad.addColorStop(0, '#2f2f37');
+        covGrad.addColorStop(1, '#0b0b0d');
+        ctx.fillStyle = covGrad;
+        ctx.fillRect(covX, covY, covSize, covSize);
+
+        ctx.translate(covX + 24, covY + 24);
+        const starGrad = ctx.createLinearGradient(-13, -13, 13, 13);
+        starGrad.addColorStop(0, '#ffffff');
+        starGrad.addColorStop(0.5, '#9a9aa6');
+        starGrad.addColorStop(0.8, '#383840');
+        starGrad.addColorStop(1, '#ececf2');
+        ctx.fillStyle = starGrad;
+        ctx.beginPath();
+        const spikes = 4;
+        const outerR = 13;
+        const innerR = 3.2;
+        for (let i = 0; i < spikes * 2; i++) {
+          const r = i % 2 === 0 ? outerR : innerR;
+          const angle = (i * Math.PI) / spikes - Math.PI / 2;
+          const sx = Math.cos(angle) * r;
+          const sy = Math.sin(angle) * r;
+          if (i === 0) ctx.moveTo(sx, sy);
+          else ctx.lineTo(sx, sy);
+        }
+        ctx.closePath();
+        ctx.fill();
+      }
+      ctx.restore();
+
+      roundRect(ctx, covX, covY, covSize, covSize, 8);
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.16)';
+      ctx.stroke();
+
+      const displayTitle = cardTrackTitle.textContent.trim() || 'which way';
+      const displayArtist = cardArtistName.textContent.trim() || 'Destroy Lonely';
+      const maxTitleW = contentW - 60 - 24 - 22;
+
+      ctx.font = '700 15px Inter, -apple-system, sans-serif';
+      ctx.fillStyle = '#f4f4f6';
+      ctx.textBaseline = 'top';
+
+      let clippedTitle = displayTitle;
+      while (ctx.measureText(clippedTitle).width > maxTitleW && clippedTitle.length > 3) {
+        clippedTitle = clippedTitle.slice(0, -1);
+      }
+      if (clippedTitle !== displayTitle) clippedTitle += '…';
+
+      ctx.fillText(clippedTitle, covX + 60, covY + 6);
+      const titleW = ctx.measureText(clippedTitle).width;
+
+      roundRect(ctx, covX + 60 + titleW + 6, covY + 7, 15, 15, 3);
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.22)';
+      ctx.fill();
+      ctx.font = '800 9px Inter, sans-serif';
+      ctx.fillStyle = '#0e0e10';
+      ctx.fillText('E', covX + 60 + titleW + 10.5, covY + 10);
+
+      ctx.font = '500 12.5px Inter, -apple-system, sans-serif';
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.62)';
+      ctx.fillText(displayArtist, covX + 60, covY + 27);
+
+      const eqRightX = W - padX - 4;
+      const eqBottomY = covY + 31;
+      for (let i = 0; i < 4; i++) {
+        const barH = eqHeights[i];
+        const barX = eqRightX - (3 - i) * 5;
+        roundRect(ctx, barX - 2.5, eqBottomY - barH, 2.5, barH, 1.25);
+        ctx.fillStyle = '#e6e6ee';
+        ctx.fill();
+      }
+
+      let curY = covY + 48 + 26;
+      measuredLyrics.forEach((item) => {
+        ctx.font = `${item.isActive ? 800 : 700} ${item.fontSize}px Inter, -apple-system, sans-serif`;
+        ctx.fillStyle = item.isActive ? '#ffffff' : 'rgba(255, 255, 255, 0.28)';
+        if (item.isActive) {
+          ctx.shadowColor = 'rgba(255, 255, 255, 0.25)';
+          ctx.shadowBlur = 16;
+        } else {
+          ctx.shadowBlur = 0;
+        }
+
+        item.wrapped.forEach((lineStr) => {
+          ctx.fillText(lineStr, padX + (item.isActive ? 2 : 0), curY);
+          curY += item.lineHeight;
+        });
+        curY += 14;
+      });
+      ctx.shadowBlur = 0;
+
+      curY += 14;
+      roundRect(ctx, padX, curY, contentW, 3.5, 2);
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
+      ctx.fill();
+
+      const activeEl = document.querySelector('.lyric-line.active');
+      const pct = (activeEl ? parseFloat(activeEl.dataset.progress) : 35) / 100;
+      const progGrad = ctx.createLinearGradient(padX, curY, padX + contentW * pct, curY);
+      progGrad.addColorStop(0, 'rgba(255, 255, 255, 0.6)');
+      progGrad.addColorStop(1, '#ffffff');
+      roundRect(ctx, padX, curY, contentW * pct, 3.5, 2);
+      ctx.fillStyle = progGrad;
+      ctx.fill();
+
+      curY += 10;
+      ctx.font = '500 10px "JetBrains Mono", monospace';
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.58)';
+      ctx.fillText(currentTime.textContent || '0:27', padX, curY);
+      const remTxt = remainingTime.textContent || '-1:48';
+      const endTimeW = ctx.measureText(remTxt).width;
+      ctx.fillText(remTxt, W - padX - endTimeW, curY);
+
+      curY += 24;
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+      ctx.beginPath();
+      ctx.moveTo(padX, curY);
+      ctx.lineTo(W - padX, curY);
+      ctx.stroke();
+
+      curY += 14;
+      ctx.save();
+      ctx.translate(padX, curY);
+      const iconScale = 19 / 24;
+      ctx.scale(iconScale, iconScale);
+      ctx.fillStyle = '#f4f4f6';
+      ctx.fill(SPOTIFY_SVG_PATH);
+      ctx.restore();
+
+      ctx.font = '700 12.5px Inter, -apple-system, sans-serif';
+      ctx.fillStyle = '#f4f4f6';
+      ctx.fillText('Spotify', padX + 26, curY + 2);
+
+      ctx.font = '700 11px "Cinzel Decorative", Georgia, serif';
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.58)';
+      const stampText = 'OPIUM*';
+      const stampW = ctx.measureText(stampText).width;
+      ctx.fillText(stampText, W - padX - stampW, curY + 3);
+
+      ctx.restore();
+    }
+
+    function base64ToUint8Array(base64) {
+      const bin = atob(base64);
+      const len = bin.length;
+      const bytes = new Uint8Array(len);
+      for (let i = 0; i < len; i++) bytes[i] = bin.charCodeAt(i);
+      return bytes;
+    }
+
+    function uint8ArrayToBase64(bytes) {
+      let binary = '';
+      const chunkSize = 0x8000;
+      for (let i = 0; i < bytes.length; i += chunkSize) {
+        const slice = bytes.subarray(i, i + chunkSize);
+        binary += String.fromCharCode.apply(null, slice);
+      }
+      return btoa(binary);
+    }
+
+    function buildMjpegAvi(jpegFrames, width, height, fps) {
+      const numFrames = jpegFrames.length;
+      const usecPerFrame = Math.round(1000000 / fps);
+
+      let moviPayloadSize = 0;
+      for (let i = 0; i < numFrames; i++) {
+        const len = jpegFrames[i].length;
+        moviPayloadSize += 8 + len + (len % 2);
+      }
+
+      const idx1Size = numFrames * 16;
+      const hdrlListSize = 4 + (8 + 56) + (8 + 4 + (8 + 56) + (8 + 40));
+      const moviListSize = 4 + moviPayloadSize;
+      const riffSize = 4 + (8 + hdrlListSize) + (8 + moviListSize) + (8 + idx1Size);
+
+      const buffer = new ArrayBuffer(8 + riffSize);
+      const view = new DataView(buffer);
+      const out = new Uint8Array(buffer);
+      let pos = 0;
+
+      function writeFourCC(str) {
+        out[pos++] = str.charCodeAt(0);
+        out[pos++] = str.charCodeAt(1);
+        out[pos++] = str.charCodeAt(2);
+        out[pos++] = str.charCodeAt(3);
+      }
+      function writeU32(val) {
+        view.setUint32(pos, val >>> 0, true);
+        pos += 4;
+      }
+      function writeU16(val) {
+        view.setUint16(pos, val & 0xffff, true);
+        pos += 2;
+      }
+
+      writeFourCC('RIFF');
+      writeU32(riffSize);
+      writeFourCC('AVI ');
+
+      writeFourCC('LIST');
+      writeU32(hdrlListSize);
+      writeFourCC('hdrl');
+
+      writeFourCC('avih');
+      writeU32(56);
+      writeU32(usecPerFrame);
+      writeU32(1500000);
+      writeU32(0);
+      writeU32(0x10);
+      writeU32(numFrames);
+      writeU32(0);
+      writeU32(1);
+      writeU32(65536);
+      writeU32(width);
+      writeU32(height);
+      writeU32(0); writeU32(0); writeU32(0); writeU32(0);
+
+      writeFourCC('LIST');
+      writeU32(4 + (8 + 56) + (8 + 40));
+      writeFourCC('strl');
+
+      writeFourCC('strh');
+      writeU32(56);
+      writeFourCC('vids');
+      writeFourCC('MJPG');
+      writeU32(0);
+      writeU16(0);
+      writeU16(0);
+      writeU32(0);
+      writeU32(1);
+      writeU32(fps);
+      writeU32(0);
+      writeU32(numFrames);
+      writeU32(65536);
+      writeU32(10000);
+      writeU32(0);
+      writeU16(0); writeU16(0); writeU16(width); writeU16(height);
+
+      writeFourCC('strf');
+      writeU32(40);
+      writeU32(40);
+      writeU32(width);
+      writeU32(height);
+      writeU16(1);
+      writeU16(24);
+      writeFourCC('MJPG');
+      writeU32(width * height * 3);
+      writeU32(0);
+      writeU32(0);
+      writeU32(0);
+      writeU32(0);
+
+      writeFourCC('LIST');
+      writeU32(moviListSize);
+      writeFourCC('movi');
+
+      const offsets = [];
+      let relOffset = 4;
+      for (let i = 0; i < numFrames; i++) {
+        const frame = jpegFrames[i];
+        offsets.push({ offset: relOffset, size: frame.length });
+        writeFourCC('00dc');
+        writeU32(frame.length);
+        out.set(frame, pos);
+        pos += frame.length;
+        if (frame.length % 2 === 1) {
+          out[pos++] = 0;
+        }
+        relOffset += 8 + frame.length + (frame.length % 2);
+      }
+
+      writeFourCC('idx1');
+      writeU32(idx1Size);
+      for (let i = 0; i < numFrames; i++) {
+        writeFourCC('00dc');
+        writeU32(0x10);
+        writeU32(offsets[i].offset);
+        writeU32(offsets[i].size);
+      }
+
+      return out;
+    }
+
+    function makeSlugFilename(ext) {
+      const clean = (cardTrackTitle.textContent || 'track')
+        .toLowerCase()
+        .replace(/[^a-z0-9а-яё]+/gi, '-')
+        .replace(/^-|-$/g, '');
+      return `eleforss-${clean || 'spotilyrics'}.${ext}`;
+    }
+
+    downloadPngBtn.addEventListener('click', () => {
+      closeExportModal();
+      const metrics = computeCardMetrics(960);
+      const canvas = document.createElement('canvas');
+      canvas.width = metrics.outW;
+      canvas.height = metrics.outH;
+      drawCardFrame(canvas, metrics, [8, 15, 11, 14]);
+
+      const dataUrl = canvas.toDataURL('image/png');
+      const b64 = dataUrl.split(',')[1];
+      lastExportBytes = base64ToUint8Array(b64);
+      lastExportMime = 'image/png';
+      lastExportFilename = makeSlugFilename('png');
+
+      exportLivePreview.style.display = 'none';
+      exportPreviewImg.style.display = 'block';
+      exportPreviewImg.src = dataUrl;
+      exportModalTitle.textContent = 'PNG-карточка готова';
+      exportModalHint.innerHTML = 'Нажми <strong>ПКМ по картинке → «Сохранить картинку как...»</strong> или нажми <strong>«Скачать PNG»</strong> ниже.';
+      modalDirectLink.textContent = 'Скачать PNG';
+      modalDirectLink.href = dataUrl;
+      modalDirectLink.download = lastExportFilename;
+      exportModal.classList.add('open');
+      showToast('PNG-карточка готова!');
+    });
+
+    downloadVideoBtn.addEventListener('click', () => {
+      closeExportModal();
+      downloadVideoBtn.disabled = true;
+      const origLabel = downloadVideoBtn.textContent;
+      downloadVideoBtn.textContent = 'Сборка видео...';
+
+      setTimeout(() => {
+        try {
+          const metrics = computeCardMetrics(576);
+          const workCanvas = document.createElement('canvas');
+          workCanvas.width = metrics.outW;
+          workCanvas.height = metrics.outH;
+
+          const fps = 15;
+          const totalFrames = 30;
+          const jpegFrames = [];
+
+          for (let f = 0; f < totalFrames; f++) {
+            const phase = (f / totalFrames) * Math.PI * 2;
+            const eqHeights = [
+              4.5 + (Math.sin(phase + 0.3) + 1) * 5.2,
+              4.5 + (Math.sin(phase + 2.1) + 1) * 5.8,
+              4.5 + (Math.sin(phase + 1.1) + 1) * 5.0,
+              4.5 + (Math.sin(phase + 3.0) + 1) * 5.5,
+            ];
+            drawCardFrame(workCanvas, metrics, eqHeights);
+            const jpgDataUrl = workCanvas.toDataURL('image/jpeg', 0.92);
+            jpegFrames.push(base64ToUint8Array(jpgDataUrl.split(',')[1]));
+          }
+
+          const aviBytes = buildMjpegAvi(jpegFrames, metrics.outW, metrics.outH, fps);
+          const aviBase64 = uint8ArrayToBase64(aviBytes);
+          const aviDataUrl = 'data:video/avi;base64,' + aviBase64;
+          const sizeKb = Math.max(1, Math.round(aviBytes.length / 1024));
+
+          lastExportBytes = aviBytes;
+          lastExportMime = 'video/avi';
+          lastExportFilename = makeSlugFilename('avi');
+
+          exportPreviewImg.style.display = 'none';
+          exportLivePreview.style.display = 'block';
+          exportLivePreview.width = metrics.outW;
+          exportLivePreview.height = metrics.outH;
+
+          let prevFrame = 0;
+          drawCardFrame(exportLivePreview, metrics, [6, 14, 9, 12]);
+          previewAnimTimer = setInterval(() => {
+            prevFrame = (prevFrame + 1) % totalFrames;
+            const phase = (prevFrame / totalFrames) * Math.PI * 2;
+            const eqHeights = [
+              4.5 + (Math.sin(phase + 0.3) + 1) * 5.2,
+              4.5 + (Math.sin(phase + 2.1) + 1) * 5.8,
+              4.5 + (Math.sin(phase + 1.1) + 1) * 5.0,
+              4.5 + (Math.sin(phase + 3.0) + 1) * 5.5,
+            ];
+            drawCardFrame(exportLivePreview, metrics, eqHeights);
+          }, 1000 / fps);
+
+          exportModalTitle.textContent = `Видео готово (${sizeKb} КБ • .AVI)`;
+          exportModalHint.innerHTML =
+            'Нажми белую кнопку <strong>«Скачать видео (.avi)»</strong> (или <strong>ПКМ → «Сохранить ссылку как...»</strong>).';
+          modalDirectLink.textContent = 'Скачать видео (.avi)';
+          modalDirectLink.href = aviDataUrl;
+          modalDirectLink.download = lastExportFilename;
+          exportModal.classList.add('open');
+
+          showToast(`Видео (${sizeKb} КБ) готово!`);
+        } finally {
+          downloadVideoBtn.disabled = false;
+          downloadVideoBtn.textContent = origLabel;
+        }
+      }, 40);
+    });
+
+    // Initialize UI & Default Appearance
+    updateCardAppearance('#18181b', 'gradient');
+    renderLyricsUI();
+  </script>
+</body>
+</html>
