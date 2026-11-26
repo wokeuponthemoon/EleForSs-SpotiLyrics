@@ -21,7 +21,7 @@ export default async function handler(req, res) {
     let artistName = '';
     let duration = 160;
 
-    // 1. Получаем данные через Spotify oEmbed (title: "Artist - Track" или "Track")
+    // 1. Получаем данные через Spotify oEmbed
     try {
       const oembedRes = await fetch(
         SPOTIFY_BASE + '/oembed?url=' + encodeURIComponent(cleanSpotifyUrl)
@@ -41,7 +41,7 @@ export default async function handler(req, res) {
       }
     } catch (_) {}
 
-    // 2. Уточняем точное имя артиста, обложку и длительность через OpenGraph мета-теги самой страницы Spotify
+    // 2. Уточняем точное имя артиста, обложку и длительность через OpenGraph мета-теги страницы Spotify
     try {
       const pageRes = await fetch(cleanSpotifyUrl, {
         headers: {
@@ -78,7 +78,7 @@ export default async function handler(req, res) {
       }
     } catch (_) {}
 
-    // Если в названии трека всё равно остался префикс "Artist - ", убираем его
+    // Убираем дублирование "Artist - " из названия трека
     if (artistName && trackName.toLowerCase().startsWith(artistName.toLowerCase() + ' - ')) {
       trackName = trackName.slice(artistName.length + 3).trim();
     }
