@@ -5,20 +5,24 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Empty query' });
   }
 
+  const SPOTIFY_BASE = ['https:/', 'open.spotify.com'].join('/');
+  const ITUNES_API = ['https:/', 'itunes.apple.com', 'search'].join('/');
+  const LRCLIB_API = ['https:/', 'lrclib.net', 'api', 'search'].join('/');
+
   try {
     let resolvedQuery = rawQuery;
     let coverUrl = null;
     let trackName = '';
     let artistName = '';
 
-    // 1. Разбор прямой ссылки ://spotify.com...
+    // 1. Разбор прямой ссылки Spotify
     const spotifyMatch = rawQuery.match(/open\.spotify\.com\/(?:intl-[a-z]+\/)?track\/([a-zA-Z0-9]+)/);
     if (spotifyMatch) {
-      const cleanSpotifyUrl = `https://://spotify.com${spotifyMatch[1]}`;
+      const cleanSpotifyUrl = SPOTIFY_BASE + '/track/' + spotifyMatch[1];
 
       try {
         const oembedRes = await fetch(
-          `https://spotify.com{encodeURIComponent(cleanSpotifyUrl)}`
+          SPOTIFY_BASE + '/oembed?url=' + encodeURIComponent(cleanSpotifyUrl)
         );
         if (oembedRes.ok) {
           const oembed = await oembedRes.json();
@@ -48,7 +52,7 @@ export default async function handler(req, res) {
               const parts = descMatch[1].split('·').map((s) => s.trim());
               if (parts.length >= 2) {
                 artistName = parts[0].replace(/^Listen to .* on Spotify\.\s*/i, '').trim();
-                resolvedQuery = `${artistName} ${trackName}`;
+                resolvedQuery = artistName + ' ' + trackName;
               }
             }
             if (!coverUrl && imgMatch && imgMatch[1]) {
@@ -59,11 +63,11 @@ export default async function handler(req, res) {
       }
     }
 
-    // 2. Поиск точного названия трека, исполнителя и обложки 600x600 через iTunes Search API
+    // 2. Поиск точного названия трека, исполнителя и обложки 600x600 через iTunes
     let duration = 160;
     try {
       const itunesRes = await fetch(
-        `https://apple.com{encodeURIComponent(resolvedQuery)}&entity=song&limit=1`
+        ITUNES_API + '?term=' + encodeURIComponent(resolvedQuery) + '&entity=song&limit=1'
       );
       if (itunesRes.ok) {
         const itunesData = await itunesRes.json();
@@ -81,15 +85,15 @@ export default async function handler(req, res) {
 
     if (!trackName) trackName = resolvedQuery;
 
-    // 3. Поиск текста с таймкодами через LRCLIB (с обязательным User-Agent)
+    // 3. Поиск текста с таймкодами через LRCLIB
     let lines = [];
     try {
-      const lrcQuery = artistName ? `${artistName} ${trackName}` : resolvedQuery;
+      const lrcQuery = artistName ? artistName + ' ' + trackName : resolvedQuery;
       const lrcRes = await fetch(
-        `https://lrclib.net{encodeURIComponent(lrcQuery)}`,
+        LRCLIB_API + '?q=' + encodeURIComponent(lrcQuery),
         {
           headers: {
-            'User-Agent': 'EleForSs-SpotiLyrics/1.0 (https://github.com/wokeuponthemoon/EleForSs-SpotiLyrics)'
+            'User-Agent': 'EleForSs-SpotiLyrics/1.0'
           }
         }
       );
@@ -113,7 +117,7 @@ export default async function handler(req, res) {
                 const pct = Math.min(95, Math.max(5, Math.round(((mins * 60 + secs) / duration) * 100)));
                 lines.push({
                   text: m[3].trim(),
-                  time: `${mins}:${secs.toString().padStart(2, '0')}`,
+                  time: mins + ':' + secs.toString().padStart(2, '0'),
                   progress: pct
                 });
               }
