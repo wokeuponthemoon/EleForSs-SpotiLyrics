@@ -1,6 +1,6 @@
 {
   "name": "eleforss-spotilyrics",
-  "version": "1.0.0-beta.1",
-  "description": "Aesthetic Opium / Spotify Lyrics Card Generator with AI Track Search",
+  "version": "1.0.0-beta.2",
+  "type": "module",
   "private": true
 }
